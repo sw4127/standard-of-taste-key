@@ -13,8 +13,11 @@ import type { Candidate, Silence } from "../../core/src/match/v6";
 export const GATE_SIZE = 50;
 /** The uploader whose lists tuned v6 (Stage 7). */
 export const TUNING_UPLOADER = "百万豪装录音棚大声听";
-/** Every uploader whose lists have tuned the rule: v6 (Stage 7), and v6.1 after the first gate run (2026-11-08). */
-export const TUNING_UPLOADERS = [TUNING_UPLOADER, "JLRS-jayfm"];
+/**
+ * Every uploader whose lists the rule has already met: v6 (Stage 7), and Bob's first four gate runs
+ * (2026-11-08), whose titles tuned v6.1 and v6.2.
+ */
+export const TUNING_UPLOADERS = [TUNING_UPLOADER, "JLRS日落fm", "JLRS-LeoFM", "JLRS-jayfm", "伤感咩吖"];
 
 /**
  * Each match gets exactly one mark, and every case lands on one: check the song, then the artist, then
@@ -49,9 +52,11 @@ export function titlesFrom(pasted: string): string[] {
   // Copying an uploader's space page also brings its tabs and times like "昨天 00:14" (Bob's second run).
   const when = /^(?:昨天|前天|今天)\s*\d{1,2}:\d{2}$/;
   const pageLabels = new Set(["TA的视频", "最新发布", "最多播放", "最多收藏", "播放全部", "全部", "视频", "合集", "合集和列表", "收藏夹", "动态", "主页", "投稿", "查看更多", "更多", "默认排序"]);
+  // A copy can lose a line break, gluing the last video's date onto the next title (Bob's fifth run).
+  const gluedDate = /^(?:\d{4}年)?\d{1,2}月\d{1,2}日(?=\S)(?!$)/;
   const out: string[] = [];
   for (const raw of pasted.split(/\r?\n/)) {
-    const t = raw.replace(/\s+/g, " ").trim();
+    const t = raw.replace(/\s+/g, " ").trim().replace(gluedDate, "");
     if (!t || junk.test(t) || when.test(t) || pageLabels.has(t)) continue;
     if (!out.includes(t)) out.push(t);
   }

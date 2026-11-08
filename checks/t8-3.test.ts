@@ -20,6 +20,13 @@ describe("the list", () => {
   it("leaves out what copying an uploader's space page brings with it (Bob's second run)", () => {
     expect(titlesFrom("TA的视频\n最新发布\n最多播放\n最多收藏\n[中字] Song - Singer\n昨天 00:14\n12:40")).toEqual(["[中字] Song - Singer"]);
   });
+  it("strips a date glued onto the next title, so the same video is not counted twice (Bob's fifth run)", () => {
+    const pasted = "Singer《Song A》\n03:45\n2023年11月7日Singer《Song B》\n2898\nSinger《Song B》\n2023年11月8日\n11月9日“A line”《Song C》";
+    expect(titlesFrom(pasted)).toEqual(["Singer《Song A》", "Singer《Song B》", "“A line”《Song C》"]);
+  });
+  it("refuses every uploader the rule has already met", () => {
+    for (const u of ["JLRS日落fm", "JLRS-LeoFM", "JLRS-jayfm", "伤感咩吖"]) expect(listProblems(u, fresh(50)).join()).toMatch(/have not tuned/);
+  });
   it("must be exactly 50 titles, from a named uploader other than the one that tuned v6, none seen before", () => {
     expect(listProblems("Example Uploader", fresh(50))).toEqual([]);
     expect(listProblems("Example Uploader", fresh(49))[0]).toMatch(/exactly 50/);
