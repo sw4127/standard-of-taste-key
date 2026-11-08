@@ -9,3 +9,4 @@ next-env.d.ts
 # Anything Bob loads by hand (a Spotify export, an exported record) never enters the repository.
 *.zip
 my-record-*.json
+*.local.test.ts

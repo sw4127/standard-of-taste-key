@@ -67,3 +67,48 @@ export interface Song {
   entry: NamedSong;
   facts: SongFacts;
 }
+
+/** D1 Plays: one row per Bilibili video played while the extension is installed (FR-T1.2). */
+export interface PlayRow {
+  play_id: string;
+  source: "live page";
+  video_id: string;
+  part_number: number;
+  page_title: string;
+  uploader_name: string;
+  uploader_id: string;
+  list_title: string;
+  list_position: number | null;
+  page_tags: string[];
+  started_at: string; // local time, ISO without zone
+  heard_seconds: number;
+  reached_end: "yes" | "no" | "unknown";
+  recording_id: string; // empty until matched
+  match_state: "certain" | "unsure" | "not a song" | "fixed by me";
+  match_rule_version: string;
+  /** The song as the status line names it (title · artist), kept with the play. */
+  song_title?: string;
+  song_artist?: string;
+}
+
+/** What the content script reads from the Bilibili page in front of the user (FR-T1.2). */
+export interface PageFacts {
+  video_id: string; // the BV number
+  part_number: number;
+  page_title: string;
+  uploader_name: string;
+  uploader_id: string;
+  list_title: string;
+  list_position: number | null;
+  page_tags: string[];
+}
+
+/** The page as the panel hears it: its facts and its seconds heard so far. */
+export interface LivePage {
+  facts: PageFacts | null;
+  /** One per viewing of a video: the panel keeps one play per token, however often it is opened. */
+  play_token: string;
+  heard_seconds: number;
+  playing: boolean;
+  ended: boolean;
+}

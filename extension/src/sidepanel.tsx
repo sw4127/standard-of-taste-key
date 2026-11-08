@@ -7,7 +7,9 @@ import { EraseEverything, PrivacyLine } from "@sot/core/ui/Footer";
 import { Judge } from "@sot/core/ui/Judge";
 import { LookBack } from "@sot/core/ui/LookBack";
 import { NavContext, type View } from "@sot/core/ui/nav";
+import { NowPlaying } from "@sot/core/ui/NowPlaying";
 import { PanelHome } from "@sot/core/ui/PanelHome";
+import { useLivePage } from "./live";
 import { SongCardExample } from "@sot/core/ui/SongCardExample";
 import { Songs } from "@sot/core/ui/Songs";
 import { TasteNote } from "@sot/core/ui/TasteNote";
@@ -23,6 +25,7 @@ const SCREENS: Record<View, () => React.ReactNode> = {
 
 function Panel() {
   const [view, setView] = useState<View>("home");
+  const live = useLivePage();
   return (
     <NavContext.Provider value={{ go: setView }}>
       <div className="panel">
@@ -35,7 +38,10 @@ function Panel() {
             </button>
           )}
         </header>
-        <main className="panel-body">{SCREENS[view]()}</main>
+        <main className="panel-body stack-lg">
+          {view === "home" && live?.facts && <NowPlaying live={{ ...live, facts: live.facts }} />}
+          {view === "home" ? <PanelHome playing={!!live?.facts} /> : SCREENS[view]()}
+        </main>
         <footer className="panel-foot stack">
           <PrivacyLine />
           <EraseEverything />

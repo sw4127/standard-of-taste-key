@@ -6,14 +6,14 @@ import { Go, NavContext } from "./nav";
 import { handOver } from "./pending-file";
 import { hydrate, useStore } from "./store";
 
-export function PanelHome() {
+export function PanelHome({ playing = false }: { playing?: boolean }) {
   const st = useStore();
   useEffect(() => void hydrate(), []);
   const nav = useContext(NavContext);
   const [over, setOver] = useState(false);
   return (
     <section className="stack-lg">
-      <article className="card stack">
+      {!playing && <article className="card stack">
         <p className="voice">Play a music video on Bilibili and I'll read it.</p>
         <div className="row">
           <a className="act" href="https://www.bilibili.com/" target="_blank" rel="noreferrer">
@@ -21,7 +21,7 @@ export function PanelHome() {
           </a>
           <Go to="example-song">See an example song card</Go>
         </div>
-      </article>
+      </article>}
       <article className="card stack">
         <p className="voice">Or name a few songs that come to mind.</p>
         <Go to="songs">Name songs</Go>

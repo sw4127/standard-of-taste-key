@@ -25,6 +25,13 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["https://www.bilibili.com/video/*", "https://www.bilibili.com/*/video/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": ["sidePanel"],
   "host_permissions": ["https://musicbrainz.org/*", "https://acousticbrainz.org/*", "https://www.wikidata.org/*"]
 }

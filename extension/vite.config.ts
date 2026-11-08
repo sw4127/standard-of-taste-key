@@ -14,6 +14,8 @@ export default defineConfig({
       input: {
         sidepanel: resolve(import.meta.dirname, "sidepanel.html"),
         background: resolve(import.meta.dirname, "src/background.ts"),
+        // A content script is a classic script: content.js must stand alone, importing nothing.
+        content: resolve(import.meta.dirname, "src/content.ts"),
       },
       output: {
         entryFileNames: "[name].js",

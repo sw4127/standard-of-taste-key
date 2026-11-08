@@ -1,0 +1,137 @@
+/**
+ * FR-CORE-1 The matching rule, v6 (T1.2, T1.3): which recording a Bilibili video is, or silence.
+ * Silent unless certain: a wrong key is worse than no key.
+ *
+ * Search MusicBrainz for `recording:"<track>" AND artist:"<artist>"` with the first artist; if that
+ * returns nothing, by the track alone. One query serves both scripts: MusicBrainz's search folds
+ * traditional and simplified Chinese itself (measured 2026-11-08: 晴天/周杰伦 and 晴天/周杰倫 return
+ * the same 10 recordings), so the PRD's second, traditional-script query is not sent.
+ * Candidates: score ≥ 85; title (notes stripped) equal to the track, compared normalised; an artist
+ * from the title in the recording's credit. Then the studio filter, the silences, the earliest.
+ */
+import { getJson, type Clock, type FetchFn, type Gate } from "../sources/http";
+import { MB, mbGate } from "../sources/musicbrainz";
+import { stripNotes, parseTitle, type Parsed } from "./parse";
+import { creditText, hasVersionWord, normalise, type MbRecording } from "./studio";
+
+export const RULE_VERSION = "v6";
+
+export type Silence =
+  | "the title names no song"
+  | "the title names no artist"
+  | "no candidate"
+  | "no studio recording"
+  | "different artists"
+  | "only clean edits"
+  | "versions months apart";
+
+export interface Candidate {
+  recording_id: string;
+  title: string;
+  artist_credit: string;
+  first_release?: string;
+  record?: string;
+  lead?: { id: string; name: string };
+}
+
+export type MatchResult =
+  | { state: "certain"; recording: MbRecording; candidate: Candidate; candidates: Candidate[]; parsed: Parsed }
+  | { state: "silent"; reason: Silence; candidates: Candidate[]; parsed: Parsed };
+
+export interface MatchDeps {
+  fetchFn: FetchFn;
+  gate?: Gate;
+  clock?: Clock;
+  cache?: Map<string, unknown>;
+}
+
+const OK_DISAMBIGUATION = /^(explicit|clean|explicit version|album version)(, ?(explicit|clean))?$/i;
+const STUDIO_PRIMARY = ["Album", "Single", "EP"];
+const NOT_STUDIO = /Live|Compilation|Remix|DJ-mix|Demo|Mixtape/;
+const esc = (s: string) => s.replace(/["\\]/g, "\\$&");
+const lead = (r: MbRecording) => normalise(r["artist-credit"]?.[0]?.name ?? "");
+
+function goodReleases(r: MbRecording) {
+  return (r.releases ?? []).filter(
+    (x) => x.status === "Official" && STUDIO_PRIMARY.includes(x["release-group"]?.["primary-type"] ?? "") && !(x["release-group"]?.["secondary-types"] ?? []).some((t) => NOT_STUDIO.test(t)),
+  );
+}
+
+export function toCandidate(r: MbRecording): Candidate {
+  const good = goodReleases(r);
+  const dates = good.map((x) => x.date).filter((d): d is string => !!d).sort();
+  return {
+    recording_id: r.id,
+    title: r.title,
+    artist_credit: creditText(r),
+    first_release: dates[0] ?? r["first-release-date"] ?? undefined,
+    record: (good[0] ?? r.releases?.[0]) && ((good[0] ?? r.releases![0]!) as { title?: string }).title,
+    lead: r["artist-credit"]?.[0]?.artist,
+  };
+}
+
+/** The rule itself, over recordings already fetched: pure, so every fixture can replay it. */
+export function decide(parsed: Parsed, found: MbRecording[]): MatchResult {
+  const byId = new Map(found.map((r) => [r.id, r]));
+  const all = [...byId.values()];
+  const candidates = (rs: MbRecording[]) => rs.slice(0, 8).map(toCandidate);
+  if (!parsed.queries.length) return { state: "silent", reason: "the title names no song", candidates: [], parsed };
+  if (!parsed.queries.some((q) => q.artists.length)) return { state: "silent", reason: "the title names no artist", candidates: candidates(all), parsed };
+
+  const c = all.filter((r) =>
+    (r.score ?? 0) >= 85 &&
+    parsed.queries.some((q) => {
+      if (normalise(stripNotes(r.title)) !== normalise(q.track)) return false;
+      const credit = normalise(creditText(r));
+      return q.artists.some((a) => normalise(a).length > 0 && credit.includes(normalise(a)));
+    }),
+  );
+  if (!c.length) return { state: "silent", reason: "no candidate", candidates: candidates(all), parsed };
+
+  const studio = c
+    .map((r) => {
+      const good = goodReleases(r);
+      const d = good.map((x) => x.date).filter((x): x is string => !!x).sort();
+      return { r, good, first: d[0] ?? null, rgs: new Set(good.map((x) => x["release-group"]!.id)) };
+    })
+    .filter((o) => o.good.length && (parsed.version || (OK_DISAMBIGUATION.test((o.r.disambiguation ?? "").trim()) || !(o.r.disambiguation ?? "").trim()) && !hasVersionWord(o.r.title)));
+  if (!studio.length) return { state: "silent", reason: "no studio recording", candidates: candidates(c), parsed };
+  if (new Set(studio.map((o) => lead(o.r))).size > 1) return { state: "silent", reason: "different artists", candidates: candidates(c), parsed };
+  const full = studio.filter((o) => !/clean/i.test(o.r.disambiguation ?? ""));
+  if (!full.length) return { state: "silent", reason: "only clean edits", candidates: candidates(c), parsed };
+  full.sort((a, b) => (a.first ?? "9").localeCompare(b.first ?? "9") || b.good.length - a.good.length);
+  const o = full[0]!;
+  const days = (a: string, b: string) => Math.abs((Date.parse(a) - Date.parse(b)) / 864e5);
+  const clash = full.slice(1).some((p) => [...p.rgs].some((g) => o.rgs.has(g)) && o.first && p.first && p.first.length >= 7 && o.first.length >= 7 && days(o.first, p.first) > 60);
+  if (clash) return { state: "silent", reason: "versions months apart", candidates: candidates(c), parsed };
+  return { state: "certain", recording: o.r, candidate: toCandidate(o.r), candidates: candidates([o.r, ...c.filter((x) => x.id !== o.r.id)]), parsed };
+}
+
+/** The MusicBrainz searches FR-CORE-1 sends for a parsed title, in order. */
+export function searchesFor(parsed: Parsed): { withArtist: string[]; trackOnly: string[] } {
+  const withArtist: string[] = [];
+  const trackOnly: string[] = [];
+  for (const q of parsed.queries) {
+    if (q.artists[0]) withArtist.push(`recording:"${esc(q.track)}" AND artist:"${esc(q.artists[0])}"`);
+    trackOnly.push(`recording:"${esc(q.track)}"`);
+  }
+  return { withArtist: [...new Set(withArtist)], trackOnly: [...new Set(trackOnly)] };
+}
+
+const searchUrl = (q: string) => `${MB}/recording?query=${encodeURIComponent(q)}&limit=50&fmt=json`;
+
+export async function fetchFor(parsed: Parsed, d: MatchDeps): Promise<MbRecording[]> {
+  const get = async (q: string) => ((await getJson(searchUrl(q), d.gate ?? mbGate, d.fetchFn, d.clock, d.cache)) as { recordings?: MbRecording[] }).recordings ?? [];
+  const { withArtist, trackOnly } = searchesFor(parsed);
+  const found: MbRecording[] = [];
+  for (const q of withArtist) found.push(...(await get(q)));
+  // If the artist searches return nothing, search by the track alone.
+  if (!found.length) for (const q of trackOnly) found.push(...(await get(q)));
+  return found;
+}
+
+export async function matchTitle(title: string, d: MatchDeps): Promise<MatchResult> {
+  const parsed = parseTitle(title);
+  if (!parsed.queries.length) return decide(parsed, []);
+  return decide(parsed, await fetchFor(parsed, d));
+}

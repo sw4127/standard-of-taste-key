@@ -7,13 +7,14 @@
  * FR-T1.6: "Erase everything in this browser" clears every store and records last_erased_at in D8.
  */
 import { keyName, parseKey } from "./design/key-colour";
-import type { CreditRole, HistoryRow, NamedSong, SongFacts, Source } from "./model";
+import type { CreditRole, HistoryRow, NamedSong, PlayRow, SongFacts, Source } from "./model";
 import type { Choice, Words } from "./note";
 
 export const DB_NAME = "the-key";
-const VERSION = 2; // 2: D11 Listening History
+const VERSION = 3; // 2: D11 Listening History; 3: D1 Plays
 
 export const STORES = {
+  D1: "play_id",
   D2: "recording_id",
   D3: "fact_id",
   D6: ["person_id", "question_id"],
@@ -224,4 +225,17 @@ export async function eraseAll(db: IDBDatabase, at: string): Promise<void> {
   for (const n of names) tx.objectStore(n).clear();
   tx.objectStore("D8").put({ settings_id: 1, last_erased_at: at } satisfies Settings);
   await done(tx);
+}
+
+// D1 is written one play at a time (its seconds heard change while the song plays).
+
+export async function putPlay(db: IDBDatabase, row: PlayRow): Promise<void> {
+  const tx = db.transaction("D1", "readwrite");
+  tx.objectStore("D1").put(row);
+  await done(tx);
+}
+
+export async function loadPlays(db: IDBDatabase): Promise<PlayRow[]> {
+  const rows = (await req(db.transaction("D1").objectStore("D1").getAll())) as PlayRow[];
+  return rows.sort((a, b) => a.started_at.localeCompare(b.started_at));
 }

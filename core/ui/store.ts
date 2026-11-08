@@ -5,9 +5,9 @@
  * IndexedDB in this browser (src/storage.ts) and saved after every change; read once when a page opens.
  */
 import { useSyncExternalStore } from "react";
-import type { Found, HistoryRow, NamedSong, Part, Song, SongFacts } from "../src/model";
+import type { Found, HistoryRow, NamedSong, Part, PlayRow, Song, SongFacts } from "../src/model";
 import type { Choice, Words } from "../src/note";
-import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, openDb, putHistory, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
+import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadPlays, openDb, putHistory, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
   /** False until the rows saved in this browser have been read. */
@@ -22,11 +22,13 @@ export interface State {
   events: UsageEvent[];
   /** D11, by person: Spotify plays read from a file dropped in this browser. */
   histories: Record<string, HistoryRow[]>;
+  /** D1, in the order played. */
+  plays: PlayRow[];
   installed_at?: string;
   last_erased_at?: string;
 }
 
-const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {} };
+const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [] };
 
 let state: State = EMPTY;
 const listeners = new Set<() => void>();
@@ -52,8 +54,8 @@ let dbp: Promise<IDBDatabase> | null = null;
 const db = () => (dbp ??= openDb());
 
 export function toSnapshot(s: State): Snapshot {
-  const ids = new Set(s.songs.map((e) => e.recording_id));
-  const rows = [...ids].filter((r) => s.facts[r]).map((r) => toRows({ ...s.facts[r]!, date_disputed: s.disputed.includes(r) }, s.matchedBy[r] ?? "my pick", now()));
+  // Every recording a song, a play or a fix brought in: the order of saves can never drop one.
+  const rows = Object.keys(s.facts).map((r) => toRows({ ...s.facts[r]!, date_disputed: s.disputed.includes(r) }, s.matchedBy[r] ?? "my pick", now()));
   const people = s.people.some((p) => p.person_id === ME) ? s.people : [{ person_id: ME, label: "me", source: "named songs" as const, loaded_at: s.installed_at ?? now() }, ...s.people];
   return {
     recordings: rows.map((r) => r.recording),
@@ -88,6 +90,7 @@ export function fromSnapshot(snap: Snapshot): State {
     words: byTime(snap.words, (w) => w.written_at),
     events: byTime(snap.events, (e) => e.at),
     histories: {},
+    plays: [],
     installed_at: settings?.installed_at,
     last_erased_at: settings?.last_erased_at,
   };
@@ -126,7 +129,7 @@ export function hydrate(): Promise<void> {
     try {
       const d = await db();
       const loaded = fromSnapshot(await loadAll(d));
-      state = { ...loaded, histories: await loadHistories(d), installed_at: loaded.installed_at ?? now() };
+      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), installed_at: loaded.installed_at ?? now() };
     } catch {
       state = { ...state, ready: true };
     }
@@ -191,6 +194,18 @@ export const actions = {
     const { [person_id]: _gone, ...rest } = state.histories;
     set({ ...state, histories: rest });
     if (hasIdb()) await deleteHistory(await db(), person_id).catch(() => void (saveFailed = true));
+  },
+  /** FR-T1.2: add or update one play (its seconds heard grow while it plays). */
+  async savePlay(row: PlayRow) {
+    const i = state.plays.findIndex((p) => p.play_id === row.play_id);
+    const plays = i < 0 ? [...state.plays, row] : state.plays.map((p, j) => (j === i ? row : p));
+    state = { ...state, plays };
+    emit();
+    if (hasIdb() && state.ready) await putPlay(await db(), row).catch(() => void (saveFailed = true));
+  },
+  /** A recording a play or a fix pointed at (D2), kept with how it was matched. */
+  keepRecording(facts: SongFacts, matched_by: RecordingRow["matched_by"]) {
+    set({ ...state, facts: { ...state.facts, [facts.recording_id]: facts }, matchedBy: { ...state.matchedBy, [facts.recording_id]: matched_by } });
   },
   /** FR-T1.6: clears every store in this browser; only the time of the erase is kept. */
   async eraseEverything() {
