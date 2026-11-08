@@ -10,9 +10,10 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p core --noEmit && tsc -p extension --noEmit && tsc -p web --noEmit",
+    "typecheck": "tsc -p core --noEmit && tsc -p extension --noEmit && tsc -p web --noEmit && tsc -p checks --noEmit",
     "build:extension": "npm run build -w extension",
     "build:web": "npm run build -w web",
+    "gate": "npm run gate -w checks",
     "build": "npm run build:extension && npm run build:web"
   },
   "devDependencies": {
@@ -24,5 +25,8 @@
     "typescript": "6.0.3",
     "vitest": "5.0.5"
   },
-  "type": "module"
+  "type": "module",
+  "overrides": {
+    "vite": "8.3.5"
+  }
 }

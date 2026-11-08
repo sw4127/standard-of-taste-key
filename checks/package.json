@@ -2,8 +2,12 @@
   "name": "@sot/checks",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "The launch-gate sheet (T8.3). Never shipped.",
   "dependencies": {
     "@sot/core": "0.1.0"
+  },
+  "scripts": {
+    "gate": "vite --config vite.config.ts"
   }
 }
