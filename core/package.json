@@ -1,0 +1,20 @@
+{
+  "name": "@sot/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./design/cardstock.css": "./design/cardstock.css",
+    "./design/fonts": "./design/fonts.ts",
+    "./design/*": "./src/design/*.ts",
+    "./ui/*": "./ui/*.tsx"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "5.3.0",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0"
+  },
+  "peerDependencies": {
+    "react": "19.3.1"
+  }
+}

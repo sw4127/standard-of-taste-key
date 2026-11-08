@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["web/scripts/serve.mjs"],
+      "port": 3211
+    },
+    {
+      "name": "panel",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["web/scripts/serve.mjs"],
+      "env": { "PORT": "3212", "ROOT": "extension/dist" },
+      "port": 3212
+    }
+  ]
+}

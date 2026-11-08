@@ -1,0 +1,228 @@
+/*
+ * CARD STOCK (PRD 6.1; the design logic is part of the specification).
+ * Three rules: one meaning per colour; one speaker per typeface; the card holds only what fits.
+ * This file is the single source of the colour tokens. `card-stock.test.ts` reads it and checks
+ * every text colour clears 7:1 on both card and ground, in both modes.
+ */
+
+:root {
+  /* Colour: each value has one job. */
+  --ground: #e4ece8;   /* 蛋壳青: the table the card lies on */
+  --card: #f3f6f2;     /* the paper */
+  --ink: #1b2220;      /* the product's words and the person's own words */
+  --quiet: #454f4a;    /* evidence and facts: counts, dates, credits, sources */
+  --hairline: #cbd6d0; /* card edges and dividers; never text */
+  --action: #4235ba;   /* only what you can act on: links, the focus ring, the answer you picked */
+
+  /* Type: one face for each speaker. CJK titles fall back to the system face at the same size. */
+  --cjk: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC";
+  --face-product: "Fraunces Variable", var(--cjk), Georgia, serif;
+  --face-record: "Geist Variable", var(--cjk), system-ui, sans-serif;
+  --face-action: "Geist Mono Variable", var(--cjk), ui-monospace, monospace;
+
+  /* Four sizes only. */
+  --size-line: 18px;
+  --size-body: 13px;
+  --size-meta: 12px;
+  --size-label: 11px;
+
+  /* Spacing: a 4 px base. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #141a18;
+    --card: #1c2421;
+    --ink: #e6ece9;
+    --quiet: #a9b5b0;
+    --hairline: #2e3935;
+    --action: #aea3ff;
+  }
+}
+
+/* ---- The ground ---------------------------------------------------------------------------- */
+
+html,
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--face-record);
+  font-size: var(--size-body);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+/* ---- The card ------------------------------------------------------------------------------ */
+
+.card {
+  background: var(--card);
+  border: 0.5px solid var(--hairline);
+  /* The painted edge: the music's key, or a hairline when no key was measured. */
+  border-left: 3px solid var(--edge, var(--hairline));
+  border-radius: 2px;
+  padding: var(--s4);
+}
+
+.card + .card {
+  margin-top: var(--s3);
+}
+
+/* ---- Speakers ------------------------------------------------------------------------------- */
+
+/* The product speaks: Fraunces roman 500, optical size follows the font size. */
+.line {
+  font-family: var(--face-product);
+  font-weight: 500;
+  font-optical-sizing: auto;
+  font-size: var(--size-line);
+  line-height: 1.35;
+  color: var(--ink);
+  margin: 0;
+}
+
+.line-arrives {
+  animation: line-arrives 150ms ease-out;
+}
+
+@keyframes line-arrives {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line-arrives {
+    animation: none;
+  }
+}
+
+/* The record speaks: Geist 400 in quiet ink. */
+.record {
+  font-family: var(--face-record);
+  font-weight: 400;
+  font-size: var(--size-body);
+  color: var(--quiet);
+  margin: 0;
+}
+
+.meta {
+  font-family: var(--face-record);
+  font-weight: 400;
+  font-size: var(--size-meta);
+  color: var(--quiet);
+  margin: 0;
+}
+
+/* The person speaks: the product's face, turned. */
+.own {
+  font-family: var(--face-product);
+  font-style: italic;
+  font-weight: 400;
+  font-optical-sizing: auto;
+  font-size: var(--size-body);
+  color: var(--ink);
+  margin: 0;
+}
+
+.label {
+  font-family: var(--face-record);
+  font-size: var(--size-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--quiet);
+  margin: 0;
+}
+
+/* What you can do: Geist Mono, dotted underline, action colour. Nothing else is mono. */
+.act {
+  font-family: var(--face-action);
+  font-size: var(--size-meta);
+  color: var(--action);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  margin: 0;
+  min-height: 24px;
+  min-width: 24px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.act:hover {
+  text-decoration-style: solid;
+}
+
+/* A panel button: the same speaker, 32 px tall, bordered in hairline. */
+.act-button {
+  min-height: 32px;
+  padding: 0 var(--s3);
+  border: 0.5px solid var(--hairline);
+  border-radius: 2px;
+  background: var(--card);
+  text-decoration: none;
+}
+
+/* The answer you picked: the action colour, and the word "picked" for anyone who cannot see it. */
+.act[aria-pressed="true"] {
+  border-color: var(--action);
+  border-width: 1px;
+  color: var(--action);
+}
+
+/* The key chip: the key's hue behind ink, the key always named in words. */
+.key-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 var(--s2);
+  border-radius: 2px;
+  font-family: var(--face-record);
+  font-size: var(--size-label);
+  color: var(--ink);
+  background: var(--chip-light, transparent);
+  border: 0.5px solid var(--hairline);
+}
+
+@media (prefers-color-scheme: dark) {
+  .key-chip {
+    background: var(--chip-dark, transparent);
+  }
+}
+
+.rule {
+  border: 0;
+  border-top: 0.5px solid var(--hairline);
+  margin: var(--s3) 0;
+}
+
+.stack > * + * {
+  margin-top: var(--s2);
+}

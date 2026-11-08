@@ -1,0 +1,28 @@
+/* One column on the ground, a 16 px gutter on a phone, the card at a readable measure on a desk. */
+.site {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 var(--s4);
+}
+
+.site-head {
+  padding: var(--s6) 0 var(--s4);
+}
+
+.site-name {
+  text-decoration: none;
+  color: var(--quiet);
+}
+
+.site-main {
+  flex: 1;
+}
+
+.site-foot {
+  margin-top: var(--s6);
+  padding: var(--s4) 0 var(--s6);
+  border-top: 0.5px solid var(--hairline);
+}

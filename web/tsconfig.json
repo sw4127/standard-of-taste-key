@@ -1,0 +1,29 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "jsx": "preserve",
+    "allowJs": false,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "app",
+    "scripts",
+    "next.config.ts",
+    ".next/types/**/*.ts",
+    "../core/design/assets.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "out",
+    ".next/dev"
+  ]
+}

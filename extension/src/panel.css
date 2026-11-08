@@ -1,0 +1,16 @@
+/* The side panel is 320–400 px wide; the card fills it with a 16 px gutter. */
+.panel {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-body {
+  flex: 1;
+  padding: var(--s4);
+}
+
+.panel-foot {
+  padding: var(--s3) var(--s4) var(--s4);
+  border-top: 0.5px solid var(--hairline);
+}
