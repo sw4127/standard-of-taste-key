@@ -5,9 +5,14 @@
   flex-direction: column;
 }
 
+.panel-head {
+  padding: var(--s4) var(--s4) 0;
+  min-height: 40px;
+}
+
 .panel-body {
   flex: 1;
-  padding: var(--s4);
+  padding: var(--s3) var(--s4) var(--s4);
 }
 
 .panel-foot {

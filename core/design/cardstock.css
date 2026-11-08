@@ -226,3 +226,178 @@ body {
 .stack > * + * {
   margin-top: var(--s2);
 }
+
+/* ---- Screens ------------------------------------------------------------------------------- */
+
+.stack-lg > * + * {
+  margin-top: var(--s4);
+}
+
+/* The product speaking at body size: offers, readings on the note, questions to think with. */
+.voice {
+  font-family: var(--face-product);
+  font-weight: 500;
+  font-optical-sizing: auto;
+  font-size: var(--size-body);
+  line-height: 1.45;
+  color: var(--ink);
+  margin: 0;
+}
+
+.plain {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.plain:first-child {
+  margin-top: 0;
+}
+
+.row,
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+
+.chip-row {
+  gap: var(--s2);
+}
+
+.choices {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.choices legend {
+  padding: 0;
+  margin-bottom: var(--s2);
+}
+
+/* A reading is a long question; it wraps inside its button. */
+.act-button.reading {
+  text-align: left;
+  white-space: normal;
+  line-height: 1.4;
+  padding: var(--s2) var(--s3);
+  width: 100%;
+}
+
+.act:disabled {
+  color: var(--quiet);
+  cursor: default;
+  text-decoration: none;
+}
+
+/* The line can be tapped for its proof; it keeps the product's face, and "The proof" beside it is the visible action. */
+.line-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.field,
+.words-box {
+  width: 100%;
+  font-size: var(--size-body);
+  color: var(--ink);
+  background: var(--card);
+  border: 0.5px solid var(--hairline);
+  border-radius: 2px;
+  padding: var(--s2) var(--s3);
+  min-height: 32px;
+}
+
+.field {
+  font-family: var(--face-record);
+}
+
+.words-box {
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.song-name {
+  color: var(--ink);
+}
+
+.evidence {
+  padding-left: var(--s3);
+  border-left: 0.5px solid var(--hairline);
+}
+
+.example-tag {
+  border: 0.5px solid var(--quiet);
+  border-radius: 2px;
+  padding: 0 var(--s1);
+  margin-right: var(--s1);
+}
+
+.drop {
+  border-style: dashed;
+  border-left-style: dashed;
+  text-align: left;
+}
+
+.drop-over {
+  border-color: var(--action);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The taste note: a 5:3 calling card (90 × 54 mm), 20 px padding, swatches along the bottom edge. */
+.note-front,
+.note-back {
+  padding: var(--s5);
+}
+
+.note-front {
+  aspect-ratio: 5 / 3;
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+}
+
+.note-lines {
+  flex: 1;
+  margin-top: var(--s3);
+}
+
+.note-lines > li + li {
+  margin-top: var(--s2);
+}
+
+.swatches {
+  display: flex;
+  gap: var(--s1);
+  min-height: 12px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 1px;
+}
+
+.example-controls {
+  border-style: dashed;
+}
