@@ -5,7 +5,7 @@
  * never addresses the listener and passes the "story" layer of FR-CORE-2.
  *
  * Sancho's story (FR-T3.4): Hume, "Of the Standard of Taste" (1757), paragraph 15, public domain. The
- * three-sentence retelling is this build's own; the last line is Hume's.
+ * three-sentence retelling is written in Bob's voice (his ruling, 2026-11-08); the last line is Hume's.
  */
 export const STORY_LABEL = "A story chosen for this song";
 
@@ -38,10 +38,11 @@ export function storyFor(title: string, leadArtist: string): Story | undefined {
 
 export const SANCHO = {
   title: "The key in the barrel",
+  // In Bob's voice (2026-11-08): concrete first, the weight at the end, a short sentence to land it.
   retelling: [
-    "Two of Sancho's kinsmen were asked to judge a barrel of wine.",
-    "One found a faint taste of leather in it, the other a taste of iron.",
-    "Everyone laughed at them both.",
+    "Two of Sancho's kinsmen were asked to taste a barrel of wine, and both called it good.",
+    "One added that it carried a faint taste of leather; the other, after the same care, found iron.",
+    "Everyone laughed at them.",
   ],
   hume: "But who laughed in the end? On emptying the hogshead, there was found at the bottom, an old key with a leathern thong tied to it.",
   source: { label: "David Hume, “Of the Standard of Taste” (1757), paragraph 15", url: "https://davidhume.org/texts/empl1/st" },
