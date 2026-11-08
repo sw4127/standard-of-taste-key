@@ -25,3 +25,12 @@ describe.skipIf(!live)("live sources", () => {
     }, 60_000);
   }
 });
+
+describe.skipIf(!live)("live: what critics said", () => {
+  it("reads review links from MusicBrainz and stated scores from Wikidata", async () => {
+    const { criticsOf } = await import("../core/src/nextrecord");
+    const c = await criticsOf("b1392450-e666-3926-a536-22c65f834433", { fetchFn }); // OK Computer
+    console.log("reviews", c.reviews.length, c.reviews.slice(0, 2), "scores", c.scores.slice(0, 4));
+    expect(c.reviews.length + c.scores.length).toBeGreaterThan(0);
+  }, 60_000);
+});

@@ -5,9 +5,9 @@
  * IndexedDB in this browser (src/storage.ts) and saved after every change; read once when a page opens.
  */
 import { useSyncExternalStore } from "react";
-import type { Found, HistoryRow, KeyRow, NamedSong, Part, PlayRow, Song, SongFacts } from "../src/model";
+import type { Found, HistoryRow, KeyRow, NamedSong, NextRow, Part, PlayRow, Song, SongFacts } from "../src/model";
 import type { Choice, Words } from "../src/note";
-import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadPlays, openDb, putHistory, putKey, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
+import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadNexts, loadPlays, openDb, putHistory, putKey, putNext, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
   /** False until the rows saved in this browser have been read. */
@@ -26,13 +26,15 @@ export interface State {
   plays: PlayRow[];
   /** D5, in the order shown. */
   keys: KeyRow[];
+  /** D7, in the order shown. */
+  nexts: NextRow[];
   story_shown_count: number;
   story_last_shown_on?: string;
   installed_at?: string;
   last_erased_at?: string;
 }
 
-const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], story_shown_count: 0 };
+const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0 };
 
 let state: State = EMPTY;
 const listeners = new Set<() => void>();
@@ -42,12 +44,18 @@ const subscribe = (l: () => void) => {
 };
 const emit = () => listeners.forEach((l) => l());
 
+/** The rows as they are now, for code outside a screen. */
+export const getState = () => state;
+
 export function useStore(): State {
   return useSyncExternalStore(subscribe, () => state, () => EMPTY);
 }
 
 const id = () => Math.random().toString(36).slice(2, 10);
 const now = () => new Date().toISOString();
+type Refs = Omit<UsageEvent, "event_id" | "kind" | "at">;
+/** FR-T8.1: an event for D9. */
+const ev = (kind: UsageEvent["kind"], refs: Refs = {}): UsageEvent => ({ event_id: id(), kind, at: now(), ...refs });
 export const MAX_SONGS = 10;
 export const ME = "me";
 
@@ -99,6 +107,7 @@ export function fromSnapshot(snap: Snapshot): State {
     histories: {},
     plays: [],
     keys: [],
+    nexts: [],
     story_shown_count: settings?.story_shown_count ?? 0,
     story_last_shown_on: settings?.story_last_shown_on,
     installed_at: settings?.installed_at,
@@ -139,7 +148,7 @@ export function hydrate(): Promise<void> {
     try {
       const d = await db();
       const loaded = fromSnapshot(await loadAll(d));
-      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), keys: await loadKeys(d), installed_at: loaded.installed_at ?? now() };
+      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now() };
     } catch {
       state = { ...state, ready: true };
     }
@@ -162,6 +171,7 @@ export const actions = {
     };
     set({
       ...state,
+      events: [...state.events, ev("song_named", { entry_id: entry.entry_id, person_id: person })],
       songs: [...state.songs, entry],
       facts: { ...state.facts, [facts.recording_id]: facts },
       matchedBy: { ...state.matchedBy, [facts.recording_id]: matched_by },
@@ -172,16 +182,28 @@ export const actions = {
     set({ ...state, songs: state.songs.filter((s) => s.entry_id !== entry_id) });
   },
   answer<F extends "comes_back_for" | "found_me">(entry_id: string, field: F, value: F extends "comes_back_for" ? Part | "unanswered" : Found | "unanswered") {
-    set({ ...state, songs: state.songs.map((s) => (s.entry_id === entry_id ? { ...s, [field]: value } : s)) });
+    set({
+      ...state,
+      events: [...state.events, ev(field === "comes_back_for" ? "part_answered" : "found_answered", { entry_id, value: String(value) })],
+      songs: state.songs.map((s) => (s.entry_id === entry_id ? { ...s, [field]: value } : s)),
+    });
   },
   disputeDate(recording_id: string) {
     if (!state.disputed.includes(recording_id)) set({ ...state, disputed: [...state.disputed, recording_id] });
   },
   choose(c: Omit<Choice, "answered_at">) {
-    set({ ...state, choices: [...state.choices.filter((x) => x.question_id !== c.question_id || x.person_id !== c.person_id), { ...c, answered_at: now() }] });
+    set({
+      ...state,
+      events: [...state.events, ev("reading_chosen", { question_id: c.question_id, person_id: c.person_id, value: c.choice })],
+      choices: [...state.choices.filter((x) => x.question_id !== c.question_id || x.person_id !== c.person_id), { ...c, answered_at: now() }],
+    });
   },
   write(w: Omit<Words, "words_id" | "written_at">) {
-    set({ ...state, words: [...state.words.filter((x) => x.about !== w.about || x.person_id !== w.person_id), { ...w, words_id: id(), written_at: now() }] });
+    set({
+      ...state,
+      events: [...state.events, ev("words_written", { question_id: w.about, person_id: w.person_id })],
+      words: [...state.words.filter((x) => x.about !== w.about || x.person_id !== w.person_id), { ...w, words_id: id(), written_at: now() }],
+    });
   },
   /** FR-T9.1: a second person for the swap test, with the consent note in the user's own words. */
   addPerson(label: string, consent_note: string, source: Person["source"] = "named songs"): string {
@@ -194,10 +216,14 @@ export const actions = {
     const others = state.events.filter((x) => !(x.kind === e.kind && x.question_id === e.question_id && x.person_id === e.person_id && x.judge_id === e.judge_id));
     set({ ...state, events: [...others, { ...e, event_id: id(), at: now() }] });
   },
+  /** FR-T8.1: log what happened on the panel or a page (D9). */
+  log(kind: UsageEvent["kind"], refs: Refs = {}) {
+    set({ ...state, events: [...state.events, ev(kind, refs)] });
+  },
   /** T5.7: keep a person's plays read from their Spotify file (replacing any read before). */
   async keepHistory(person_id: string, rows: HistoryRow[]) {
     const mine = rows.map((r, i) => ({ ...r, person_id, history_id: `${person_id}:${i}` }));
-    set({ ...state, histories: { ...state.histories, [person_id]: mine } });
+    set({ ...state, events: [...state.events, ev("history_loaded", { person_id, value: String(mine.length) })], histories: { ...state.histories, [person_id]: mine } });
     if (hasIdb()) await putHistory(await db(), person_id, mine).catch(() => void (saveFailed = true));
   },
   async removeHistory(person_id: string) {
@@ -219,6 +245,13 @@ export const actions = {
     state = { ...state, keys: i < 0 ? [...state.keys, row] : state.keys.map((k, j) => (j === i ? row : k)) };
     emit();
     if (hasIdb() && state.ready) await putKey(await db(), row).catch(() => void (saveFailed = true));
+  },
+  /** FR-T4.5: add or update one next record (D7). */
+  async saveNext(row: NextRow) {
+    const i = state.nexts.findIndex((n) => n.suggestion_id === row.suggestion_id);
+    state = { ...state, nexts: i < 0 ? [...state.nexts, row] : state.nexts.map((n, j) => (j === i ? row : n)) };
+    emit();
+    if (hasIdb() && state.ready) await putNext(await db(), row).catch(() => void (saveFailed = true));
   },
   /** FR-T3.4: Sancho's story showed by itself today. */
   storyShown(day: string) {

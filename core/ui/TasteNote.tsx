@@ -9,11 +9,14 @@ import { passes } from "../src/checks";
 import { edgeColour, keyName } from "../src/design/key-colour";
 import { assembleNote, noteAvailable } from "../src/note";
 import { ExampleLabel, Go, SourceRef } from "./nav";
-import { hydrate, songsOf, useStore } from "./store";
+import { actions, hydrate, songsOf, useStore } from "./store";
 
 export function TasteNote({ person = "me" }: { person?: string }) {
   const st = useStore();
   useEffect(() => void hydrate(), []);
+  useEffect(() => {
+    if (st.ready && noteAvailable(st.choices, st.words, person)) actions.log("note_opened", { person_id: person });
+  }, [st.ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const [back, setBack] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
   const songs = songsOf(st, person);

@@ -14,7 +14,7 @@ import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
 import { recordingFacts } from "../src/sources/recording";
 import { SongWords } from "./SongWords";
-import { actions, hydrate, useStore } from "./store";
+import { actions, getState, hydrate, useStore } from "./store";
 
 const fetchFn: FetchFn = (url) => fetch(url);
 const localNow = () => {
@@ -34,9 +34,17 @@ function factsFrom(c: Candidate): SongFacts {
 }
 
 /** FR-T2.1: the status line uses the candidate's facts at once; credits, places, key and tempo follow. */
-function keepWithFacts(c: Candidate, matched_by: "rule" | "my fix") {
+function keepWithFacts(c: Candidate, matched_by: "rule" | "my fix", play_id?: string) {
   actions.keepRecording(factsFrom(c), matched_by);
+  if (play_id) noticeLaterPlay(c.recording_id, play_id);
   void recordingFacts(c, { fetchFn }).then((full) => actions.keepRecording(full, matched_by));
+}
+
+/** FR-T4.5: a later play of a track from a suggested record is marked on that suggestion (D7). */
+function noticeLaterPlay(recording_id: string, play_id: string) {
+  for (const n of getState().nexts) {
+    if (!n.later_played_play_id && n.play_id !== play_id && n.track_recording_ids.includes(recording_id)) void actions.saveNext({ ...n, later_played_play_id: play_id });
+  }
 }
 
 /** The pick a person made for this video before, if any: every later play of it uses it. */
@@ -79,9 +87,11 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     };
     play.current = row;
     savedHeard.current = live.heard_seconds;
+    actions.log("song_started", { play_id: row.play_id });
     if (fix) {
       setStatus({ kind: "match", result: null });
       void actions.savePlay(row);
+      actions.log("key_ready", { play_id: row.play_id, value: fix.match_state });
       return;
     }
     setStatus({ kind: "reading" });
@@ -91,12 +101,13 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
         // Merge into the newest row: seconds heard may have been saved while the rule ran.
         const latest = play.current?.play_id === row.play_id ? play.current : row;
         if (result.state === "certain") {
-          keepWithFacts(result.candidate, "rule");
+          keepWithFacts(result.candidate, "rule", row.play_id);
           play.current = { ...latest, recording_id: result.candidate.recording_id, match_state: "certain", song_title: result.candidate.title, song_artist: result.candidate.artist_credit };
         } else {
           play.current = latest;
         }
         void actions.savePlay(play.current);
+        actions.log("key_ready", { play_id: row.play_id, value: result.state === "certain" ? "certain" : `silent: ${result.reason}` });
         setStatus({ kind: "match", result });
       },
       () => {
@@ -129,9 +140,10 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       c === "not a song"
         ? { ...row, match_state: "not a song", recording_id: "", song_title: undefined, song_artist: undefined }
         : { ...row, match_state: "fixed by me", recording_id: c.recording_id, song_title: c.title, song_artist: c.artist_credit };
-    if (c !== "not a song") keepWithFacts(c, "my fix");
+    if (c !== "not a song") keepWithFacts(c, "my fix", next.play_id);
     play.current = next;
     void actions.savePlay(next);
+    actions.log("match_fixed", { play_id: next.play_id, value: next.match_state });
     setFixing(false);
   };
 

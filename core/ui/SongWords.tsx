@@ -14,6 +14,7 @@ import { SANCHO, STORY_LABEL, storyFor } from "../src/stories";
 import { KeyChip } from "./KeyChip";
 import { Go, SourceRef } from "./nav";
 import { actions, ME, useStore } from "./store";
+import { WhereNext } from "./WhereNext";
 
 const localNow = () => {
   const d = new Date();
@@ -98,7 +99,15 @@ function Proof({ line, song, play }: { line: FirstLine; song: SongFacts; play: P
       )}
       <div className="row">
         {chosen && (
-          <button type="button" className="act" aria-expanded={story} onClick={() => setStory((x) => !x)}>
+          <button
+            type="button"
+            className="act"
+            aria-expanded={story}
+            onClick={() => {
+              if (!story) actions.log("story_shown", { play_id: play.play_id, value: chosen.song });
+              setStory((x) => !x);
+            }}
+          >
             {STORY_LABEL}
           </button>
         )}
@@ -194,6 +203,7 @@ export function SongWords({ song, play, heard }: { song: SongFacts; play: PlayRo
       ...(l.offer ? { offer_shown: true } : {}), dropped: false,
     };
     void actions.saveKey(row);
+    actions.log("key_shown", { play_id: play.play_id, key_id: row.key_id, value: `${heard}/${wait}` });
   }, [heard >= wait, shown?.key_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const drop = () => {
@@ -201,9 +211,11 @@ export function SongWords({ song, play, heard }: { song: SongFacts; play: PlayRo
     setProof(false);
     setLine(null);
     void actions.saveKey({ ...shown, dropped: true });
+    actions.log("line_dropped", { play_id: play.play_id, key_id: shown.key_id });
   };
   const openProof = () => {
     setProof((p) => !p);
+    if (shown && !proof) actions.log("proof_opened", { play_id: play.play_id, key_id: shown.key_id });
     if (shown && !shown.proof_opened_at) void actions.saveKey({ ...shown, proof_opened_at: localNow() });
   };
 
@@ -241,10 +253,19 @@ export function SongWords({ song, play, heard }: { song: SongFacts; play: PlayRo
         </div>
       )}
 
-      <button type="button" className="act" aria-expanded={made} onClick={() => setMade((x) => !x)}>
+      <button
+        type="button"
+        className="act"
+        aria-expanded={made}
+        onClick={() => {
+          if (!made) actions.log("made_opened", { play_id: play.play_id });
+          setMade((x) => !x);
+        }}
+      >
         {made ? "Hide how it was made" : "How it was made"}
       </button>
       {made && <HowItWasMade song={song} />}
+      <WhereNext song={song} play={play} />
     </div>
   );
 }

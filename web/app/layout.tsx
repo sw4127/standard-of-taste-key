@@ -28,6 +28,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <footer className="site-foot stack">
             <PrivacyLine />
             <DataCredits />
+            <Link className="act" href="/my-numbers/">
+              My numbers and export
+            </Link>
             <EraseEverything />
           </footer>
         </div>

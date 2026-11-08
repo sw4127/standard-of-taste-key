@@ -5,8 +5,9 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { EraseEverything, PrivacyLine } from "@sot/core/ui/Footer";
 import { Judge } from "@sot/core/ui/Judge";
+import { MyNumbers } from "@sot/core/ui/MyNumbers";
 import { LookBack } from "@sot/core/ui/LookBack";
-import { NavContext, type View } from "@sot/core/ui/nav";
+import { Go, NavContext, type View } from "@sot/core/ui/nav";
 import { NowPlaying } from "@sot/core/ui/NowPlaying";
 import { PanelHome } from "@sot/core/ui/PanelHome";
 import { useLivePage } from "./live";
@@ -21,6 +22,7 @@ const SCREENS: Record<View, () => React.ReactNode> = {
   "look-back": () => <LookBack />,
   note: () => <TasteNote />,
   judge: () => <Judge />,
+  numbers: () => <MyNumbers />,
 };
 
 function Panel() {
@@ -44,6 +46,7 @@ function Panel() {
         </main>
         <footer className="panel-foot stack">
           <PrivacyLine />
+          <Go to="numbers">My numbers and export</Go>
           <EraseEverything />
         </footer>
       </div>

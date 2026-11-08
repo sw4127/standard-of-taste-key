@@ -135,3 +135,24 @@ export interface KeyRow {
   proof_opened_at?: string;
   dropped: boolean;
 }
+
+/** D7 Next Records: every next record suggested, with its reasons (FR-T4.5). */
+export interface NextRow {
+  suggestion_id: string;
+  from_recording_id: string;
+  play_id: string;
+  release_group_id: string;
+  record_title: string;
+  artist: string;
+  first_release?: string;
+  start_track_recording_id?: string;
+  start_track_title?: string;
+  /** Every recording on the record, so a later play of any of its tracks is noticed. */
+  track_recording_ids: string[];
+  reasons: { kind: "uploader" | "trusted_judge" | "artist_new" | "shared_person"; text: string; evidence: string[] }[];
+  uploader_id?: string;
+  shown_at: string;
+  search_opened_at?: string;
+  uploader_opened_at?: string;
+  later_played_play_id?: string;
+}

@@ -7,11 +7,11 @@
  * FR-T1.6: "Erase everything in this browser" clears every store and records last_erased_at in D8.
  */
 import { keyName, parseKey } from "./design/key-colour";
-import type { CreditRole, HistoryRow, KeyRow, NamedSong, PlaceRole, PlayRow, SongFacts, Source } from "./model";
+import type { CreditRole, HistoryRow, KeyRow, NamedSong, NextRow, PlaceRole, PlayRow, SongFacts, Source } from "./model";
 import type { Choice, Words } from "./note";
 
 export const DB_NAME = "the-key";
-const VERSION = 4; // 2: D11 Listening History; 3: D1 Plays; 4: D5 Keys
+const VERSION = 5; // 2: D11 Listening History; 3: D1 Plays; 4: D5 Keys; 5: D7 Next Records
 
 export const STORES = {
   D1: "play_id",
@@ -19,6 +19,7 @@ export const STORES = {
   D3: "fact_id",
   D5: "key_id",
   D6: ["person_id", "question_id"],
+  D7: "suggestion_id",
   D8: "settings_id",
   D9: "event_id",
   D11: "history_id",
@@ -68,16 +69,29 @@ export interface Person {
 }
 
 /** D9, the kinds this step logs. */
+/** D9's kinds (PRD section 4), every one logged (FR-T8.1). */
+export const EVENT_KINDS = [
+  "song_started", "key_ready", "key_shown", "proof_opened", "story_shown", "made_opened", "next_shown", "next_search_opened",
+  "uploader_opened", "line_dropped", "match_fixed", "song_named", "part_answered", "found_answered", "reading_chosen",
+  "words_written", "note_opened", "history_loaded", "export_made", "check_a_answered", "swap_answered",
+] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+/** D9 Usage Events: what happened, when, and what it points at. */
 export interface UsageEvent {
   event_id: string;
-  kind: "check_a_answered" | "swap_answered";
+  kind: EventKind;
   at: string;
-  /** The line judged, its owner (person_id), who answered (judge_id) and the answer given. */
-  question_id: string;
-  person_id: string;
-  judge_id: string;
-  value: string;
-  line_text: string;
+  play_id?: string;
+  key_id?: string;
+  question_id?: string;
+  entry_id?: string;
+  /** Whose row it concerns (a line's owner, a history's person). */
+  person_id?: string;
+  /** Check A and the swap test: who answered, the answer, the line as it read. */
+  judge_id?: string;
+  value?: string;
+  line_text?: string;
 }
 
 export interface Settings {
@@ -263,5 +277,18 @@ export async function putKey(db: IDBDatabase, row: KeyRow): Promise<void> {
 
 export async function loadKeys(db: IDBDatabase): Promise<KeyRow[]> {
   const rows = (await req(db.transaction("D5").objectStore("D5").getAll())) as KeyRow[];
+  return rows.sort((a, b) => a.shown_at.localeCompare(b.shown_at));
+}
+
+// D7 is written one suggestion at a time (shown, a link opened, a later play noticed).
+
+export async function putNext(db: IDBDatabase, row: NextRow): Promise<void> {
+  const tx = db.transaction("D7", "readwrite");
+  tx.objectStore("D7").put(row);
+  await done(tx);
+}
+
+export async function loadNexts(db: IDBDatabase): Promise<NextRow[]> {
+  const rows = (await req(db.transaction("D7").objectStore("D7").getAll())) as NextRow[];
   return rows.sort((a, b) => a.shown_at.localeCompare(b.shown_at));
 }

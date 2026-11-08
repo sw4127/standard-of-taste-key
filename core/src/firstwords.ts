@@ -46,6 +46,8 @@ export interface FirstLine {
   offer?: boolean;
   /** Names quoted in the line and its proof (titles, records, artists): quoted, not stated (FR-CORE-2). */
   names?: string[];
+  /** The friend line's record: the one they played most (where to start; FR-T4.5's trusted judge). */
+  record?: string;
 }
 
 /** D4 reading templates for lines from the person's own record (hand-written; never "why"). */
@@ -133,6 +135,7 @@ export function friendLine(histories: Record<string, HistoryRow[]>, people: Pers
     text: `${who} has played this artist ${rows.length} times.`,
     under: `Where to start: ${album}, the record they played most, in ${when}.`,
     names: [who, artist, album, ...songs.map(([t]) => t)],
+    record: album,
     proof: [
       { text: `${rows.length} plays of ${artist} of 30 seconds or more`, source },
       { text: `${album}: ${albumPlays} plays, most of them in ${when}`, source },

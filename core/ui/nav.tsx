@@ -5,7 +5,7 @@
  */
 import { createContext, useContext, type ReactNode } from "react";
 
-export type View = "home" | "songs" | "look-back" | "note" | "example-song" | "judge";
+export type View = "home" | "songs" | "look-back" | "note" | "example-song" | "judge" | "numbers";
 
 export interface Nav {
   go: (v: View) => void;
