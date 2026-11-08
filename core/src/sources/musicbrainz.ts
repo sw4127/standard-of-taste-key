@@ -3,7 +3,7 @@
  * recording they confirm. Genre associations and artist gender are never read in this build.
  */
 import { breaches } from "../checks";
-import type { CreditRole, Source } from "../model";
+import type { CreditRole, PlaceRole, Source } from "../model";
 import { bareTitle, creditText, hasVersionWord, isStudio, leadArtist, normalise, pickStudio, studioDate, type MbRecording } from "../match/studio";
 import { getJson, Gate, realClock, type Clock, type FetchFn } from "./http";
 
@@ -121,8 +121,12 @@ export async function recordingsOf(c: Pick<Candidate, "title" | "lead_artist_id"
 interface MbRelation {
   type: string;
   "target-type": string;
+  attributes?: string[];
+  begin?: string | null;
+  end?: string | null;
   artist?: { id: string; name: string };
   work?: { id: string; title: string; relations?: MbRelation[] };
+  place?: { id: string; name: string };
 }
 export interface MbRecordingDetail extends MbRecording {
   relations?: MbRelation[];
@@ -146,13 +150,19 @@ const WORK_ROLE: Record<string, CreditRole> = { composer: "writer", lyricist: "w
 
 export const recordingPage = (id: string): Source => ({ label: "MusicBrainz", url: `https://musicbrainz.org/recording/${id}` });
 
-export function peopleOf(r: MbRecordingDetail): { name: string; role: CreditRole; source: Source }[] {
-  const out: { name: string; role: CreditRole; source: Source }[] = [];
-  const add = (name: string, role: CreditRole, source: Source) => {
-    if (!out.some((p) => p.name === name && p.role === role)) out.push({ name, role, source });
+type Person = { name: string; role: CreditRole; source: Source; detail?: string };
+
+export function peopleOf(r: MbRecordingDetail): Person[] {
+  const out: Person[] = [];
+  const add = (name: string, role: CreditRole, source: Source, detail?: string) => {
+    const same = out.find((p) => p.name === name && p.role === role);
+    if (!same) out.push({ name, role, source, ...(detail ? { detail } : {}) });
+    else if (detail && !same.detail?.includes(detail)) same.detail = same.detail ? `${same.detail}, ${detail}` : detail;
   };
   for (const rel of r.relations ?? []) {
-    if (rel["target-type"] === "artist" && rel.artist && RECORDING_ROLE[rel.type]) add(rel.artist.name, RECORDING_ROLE[rel.type]!, recordingPage(r.id));
+    // MusicBrainz names what was played or sung in the relation's attributes ("guitar", "lead vocals").
+    const detail = rel.attributes?.length ? rel.attributes.join(", ") : rel.type === "vocal" ? "vocals" : undefined;
+    if (rel["target-type"] === "artist" && rel.artist && RECORDING_ROLE[rel.type]) add(rel.artist.name, RECORDING_ROLE[rel.type]!, recordingPage(r.id), RECORDING_ROLE[rel.type] === "performer" ? detail : undefined);
     if (rel["target-type"] === "work" && rel.work) {
       for (const w of rel.work.relations ?? []) {
         if (w["target-type"] === "artist" && w.artist && WORK_ROLE[w.type]) {
@@ -164,8 +174,20 @@ export function peopleOf(r: MbRecordingDetail): { name: string; role: CreditRole
   return out;
 }
 
+const PLACE_ROLE: Record<string, PlaceRole> = { "recorded at": "recorded at", "mixed at": "mixed at", "mastered at": "mastered at" };
+
+/** FR-T4.1's "where and when": the places MusicBrainz links to the recording, with the dates it gives. */
+export function placesOf(r: MbRecordingDetail): { name: string; role: PlaceRole; date?: string; source: Source }[] {
+  return (r.relations ?? [])
+    .filter((rel) => rel["target-type"] === "place" && rel.place && PLACE_ROLE[rel.type])
+    .map((rel) => {
+      const date = rel.begin && rel.end && rel.end !== rel.begin ? `${rel.begin} to ${rel.end}` : rel.begin ?? undefined;
+      return { name: rel.place!.name, role: PLACE_ROLE[rel.type]!, ...(date ? { date } : {}), source: { label: "MusicBrainz", url: `https://musicbrainz.org/place/${rel.place!.id}` } };
+    });
+}
+
 export async function recordingDetail(id: string, d: MbDeps): Promise<MbRecordingDetail> {
-  const inc = "artist-credits+releases+release-groups+artist-rels+work-rels+work-level-rels";
+  const inc = "artist-credits+releases+release-groups+artist-rels+work-rels+work-level-rels+place-rels";
   return (await get(`${MB}/recording/${id}?inc=${inc}&fmt=json`, d)) as MbRecordingDetail;
 }
 

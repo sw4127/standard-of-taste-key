@@ -4,6 +4,7 @@
  * at once when rule v6 is certain; when it is silent, "I can't tell which recording this is" with "Fix",
  * and no line about the song. "Fix" lists up to eight recordings and "Not a song"; one tap picks, and
  * every later play of the same video uses the pick. Each play is kept in D1 with its seconds heard.
+ * A matched song's credits and facts are fetched at once (T2.1) and its words follow (SongWords).
  */
 import { useEffect, useRef, useState } from "react";
 import { normalise } from "../src/match/studio";
@@ -11,6 +12,8 @@ import { matchTitle, RULE_VERSION, type Candidate, type MatchResult } from "../s
 import type { LivePage, PageFacts, PlayRow, SongFacts } from "../src/model";
 import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
+import { recordingFacts } from "../src/sources/recording";
+import { SongWords } from "./SongWords";
 import { actions, hydrate, useStore } from "./store";
 
 const fetchFn: FetchFn = (url) => fetch(url);
@@ -28,6 +31,12 @@ function factsFrom(c: Candidate): SongFacts {
     lead_artist_id: lead?.id ?? normalise(c.artist_credit), lead_artist: lead?.name ?? c.artist_credit,
     first_release_year: y, date_source: recordingPage(c.recording_id), date_disputed: false, people: [],
   };
+}
+
+/** FR-T2.1: the status line uses the candidate's facts at once; credits, places, key and tempo follow. */
+function keepWithFacts(c: Candidate, matched_by: "rule" | "my fix") {
+  actions.keepRecording(factsFrom(c), matched_by);
+  void recordingFacts(c, { fetchFn }).then((full) => actions.keepRecording(full, matched_by));
 }
 
 /** The pick a person made for this video before, if any: every later play of it uses it. */
@@ -82,7 +91,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
         // Merge into the newest row: seconds heard may have been saved while the rule ran.
         const latest = play.current?.play_id === row.play_id ? play.current : row;
         if (result.state === "certain") {
-          actions.keepRecording(factsFrom(result.candidate), "rule");
+          keepWithFacts(result.candidate, "rule");
           play.current = { ...latest, recording_id: result.candidate.recording_id, match_state: "certain", song_title: result.candidate.title, song_artist: result.candidate.artist_credit };
         } else {
           play.current = latest;
@@ -120,7 +129,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       c === "not a song"
         ? { ...row, match_state: "not a song", recording_id: "", song_title: undefined, song_artist: undefined }
         : { ...row, match_state: "fixed by me", recording_id: c.recording_id, song_title: c.title, song_artist: c.artist_credit };
-    if (c !== "not a song") actions.keepRecording(factsFrom(c), "my fix");
+    if (c !== "not a song") keepWithFacts(c, "my fix");
     play.current = next;
     void actions.savePlay(next);
     setFixing(false);
@@ -166,6 +175,9 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
           initial={candidates}
           onPick={pick}
         />
+      )}
+      {known && row && st.facts[row.recording_id] && (
+        <SongWords key={`${row.play_id}:${row.recording_id}`} song={st.facts[row.recording_id]!} play={row} heard={live.heard_seconds} />
       )}
     </article>
   );

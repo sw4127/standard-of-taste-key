@@ -7,16 +7,17 @@
  * FR-T1.6: "Erase everything in this browser" clears every store and records last_erased_at in D8.
  */
 import { keyName, parseKey } from "./design/key-colour";
-import type { CreditRole, HistoryRow, NamedSong, PlayRow, SongFacts, Source } from "./model";
+import type { CreditRole, HistoryRow, KeyRow, NamedSong, PlaceRole, PlayRow, SongFacts, Source } from "./model";
 import type { Choice, Words } from "./note";
 
 export const DB_NAME = "the-key";
-const VERSION = 3; // 2: D11 Listening History; 3: D1 Plays
+const VERSION = 4; // 2: D11 Listening History; 3: D1 Plays; 4: D5 Keys
 
 export const STORES = {
   D1: "play_id",
   D2: "recording_id",
   D3: "fact_id",
+  D5: "key_id",
   D6: ["person_id", "question_id"],
   D8: "settings_id",
   D9: "event_id",
@@ -45,8 +46,9 @@ export interface RecordingRow {
 export interface FactRow {
   fact_id: string;
   recording_id: string;
-  kind: "key" | "tempo_bpm" | CreditRole;
+  kind: "key" | "tempo_bpm" | "studio" | CreditRole;
   person_or_place?: string;
+  role_detail?: string;
   value?: string;
   confidence?: number;
   source_label: string;
@@ -82,6 +84,9 @@ export interface Settings {
   settings_id: 1;
   installed_at?: string;
   last_erased_at?: string;
+  /** FR-T3.4: how often Sancho's story has shown by itself, and on which local day last. */
+  story_shown_count?: number;
+  story_last_shown_on?: string;
 }
 
 export interface Snapshot {
@@ -113,7 +118,10 @@ export function toRows(f: SongFacts, matched_by: RecordingRow["matched_by"], at:
     facts.push({ fact_id: `${id}:tempo`, recording_id: id, kind: "tempo_bpm", value: String(f.bpm.value), source_label: f.bpm.source.label, source_url: f.bpm.source.url, licence: licenceOf(f.bpm.source), fetched_at: at });
   }
   f.people.forEach((p, i) => {
-    facts.push({ fact_id: `${id}:person:${i}`, recording_id: id, kind: p.role, person_or_place: p.name, source_label: p.source.label, source_url: p.source.url, licence: licenceOf(p.source), fetched_at: at });
+    facts.push({ fact_id: `${id}:person:${i}`, recording_id: id, kind: p.role, person_or_place: p.name, ...(p.detail ? { role_detail: p.detail } : {}), source_label: p.source.label, source_url: p.source.url, licence: licenceOf(p.source), fetched_at: at });
+  });
+  (f.places ?? []).forEach((p, i) => {
+    facts.push({ fact_id: `${id}:place:${i}`, recording_id: id, kind: "studio", person_or_place: p.name, role_detail: p.role, ...(p.date ? { value: p.date } : {}), source_label: p.source.label, source_url: p.source.url, licence: licenceOf(p.source), fetched_at: at });
   });
   return {
     recording: {
@@ -141,7 +149,12 @@ export function fromRows(r: RecordingRow, facts: FactRow[]): SongFacts {
     date_source: r.date_source, date_disputed: r.date_disputed,
     key: parsed && k ? { ...parsed, strength: k.confidence ?? 0, source: src(k) } : undefined,
     bpm: t?.value ? { value: Number(t.value), source: src(t) } : undefined,
-    people: mine.filter((x) => x.kind !== "key" && x.kind !== "tempo_bpm" && x.person_or_place).map((x) => ({ name: x.person_or_place!, role: x.kind as CreditRole, source: src(x) })),
+    people: mine
+      .filter((x) => x.kind !== "key" && x.kind !== "tempo_bpm" && x.kind !== "studio" && x.person_or_place)
+      .map((x) => ({ name: x.person_or_place!, role: x.kind as CreditRole, source: src(x), ...(x.role_detail ? { detail: x.role_detail } : {}) })),
+    ...(mine.some((x) => x.kind === "studio")
+      ? { places: mine.filter((x) => x.kind === "studio").map((x) => ({ name: x.person_or_place!, role: x.role_detail as PlaceRole, ...(x.value ? { date: x.value } : {}), source: src(x) })) }
+      : {}),
   };
 }
 
@@ -238,4 +251,17 @@ export async function putPlay(db: IDBDatabase, row: PlayRow): Promise<void> {
 export async function loadPlays(db: IDBDatabase): Promise<PlayRow[]> {
   const rows = (await req(db.transaction("D1").objectStore("D1").getAll())) as PlayRow[];
   return rows.sort((a, b) => a.started_at.localeCompare(b.started_at));
+}
+
+// D5 is written one line at a time (shown, its proof opened, dropped).
+
+export async function putKey(db: IDBDatabase, row: KeyRow): Promise<void> {
+  const tx = db.transaction("D5", "readwrite");
+  tx.objectStore("D5").put(row);
+  await done(tx);
+}
+
+export async function loadKeys(db: IDBDatabase): Promise<KeyRow[]> {
+  const rows = (await req(db.transaction("D5").objectStore("D5").getAll())) as KeyRow[];
+  return rows.sort((a, b) => a.shown_at.localeCompare(b.shown_at));
 }

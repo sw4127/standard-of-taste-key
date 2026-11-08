@@ -31,8 +31,12 @@ export interface SongFacts {
   key?: Key & { strength: number; source: Source };
   bpm?: { value: number; source: Source };
   /** Credited people with their role (D3 kinds producer, writer, recording engineer, mixer…). */
-  people: { name: string; role: CreditRole; source: Source }[];
+  people: { name: string; role: CreditRole; source: Source; /** e.g. "guitar", "lead vocals" */ detail?: string }[];
+  /** Where it was recorded, mixed or mastered, and when, where MusicBrainz says (D3 studio / recording date). */
+  places?: { name: string; role: PlaceRole; date?: string; source: Source }[];
 }
+
+export type PlaceRole = "recorded at" | "mixed at" | "mastered at";
 
 export type CreditRole =
   | "producer" | "writer" | "recording engineer" | "mixer" | "mastering engineer" | "arranger" | "programming" | "performer";
@@ -111,4 +115,23 @@ export interface LivePage {
   heard_seconds: number;
   playing: boolean;
   ended: boolean;
+}
+
+/** D5 Keys: every line shown on the panel, with what the person did with it (T2.2–T2.6). */
+export interface KeyRow {
+  key_id: string;
+  recording_id: string;
+  play_id: string;
+  template_id: string;
+  /** What the line rests on, in words (play dates, counts), for the record. */
+  evidence: string[];
+  text_shown: string;
+  shown_at: string;
+  seconds_heard_when_shown: number;
+  /** FR-T2.4: the threshold that applied (15 or 60), logged with the real seconds. */
+  threshold_seconds: number;
+  /** The quiet line's offer was shown with it (FR-T2.5). */
+  offer_shown?: boolean;
+  proof_opened_at?: string;
+  dropped: boolean;
 }

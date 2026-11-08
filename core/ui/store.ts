@@ -5,9 +5,9 @@
  * IndexedDB in this browser (src/storage.ts) and saved after every change; read once when a page opens.
  */
 import { useSyncExternalStore } from "react";
-import type { Found, HistoryRow, NamedSong, Part, PlayRow, Song, SongFacts } from "../src/model";
+import type { Found, HistoryRow, KeyRow, NamedSong, Part, PlayRow, Song, SongFacts } from "../src/model";
 import type { Choice, Words } from "../src/note";
-import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadPlays, openDb, putHistory, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
+import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadPlays, openDb, putHistory, putKey, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
   /** False until the rows saved in this browser have been read. */
@@ -24,11 +24,15 @@ export interface State {
   histories: Record<string, HistoryRow[]>;
   /** D1, in the order played. */
   plays: PlayRow[];
+  /** D5, in the order shown. */
+  keys: KeyRow[];
+  story_shown_count: number;
+  story_last_shown_on?: string;
   installed_at?: string;
   last_erased_at?: string;
 }
 
-const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [] };
+const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], story_shown_count: 0 };
 
 let state: State = EMPTY;
 const listeners = new Set<() => void>();
@@ -61,7 +65,10 @@ export function toSnapshot(s: State): Snapshot {
     recordings: rows.map((r) => r.recording),
     facts: rows.flatMap((r) => r.facts),
     choices: s.choices,
-    settings: [{ settings_id: 1, installed_at: s.installed_at ?? now(), ...(s.last_erased_at ? { last_erased_at: s.last_erased_at } : {}) }],
+    settings: [{
+      settings_id: 1, installed_at: s.installed_at ?? now(), ...(s.last_erased_at ? { last_erased_at: s.last_erased_at } : {}),
+      story_shown_count: s.story_shown_count, ...(s.story_last_shown_on ? { story_last_shown_on: s.story_last_shown_on } : {}),
+    }],
     events: s.events,
     people,
     songs: s.songs,
@@ -91,6 +98,9 @@ export function fromSnapshot(snap: Snapshot): State {
     events: byTime(snap.events, (e) => e.at),
     histories: {},
     plays: [],
+    keys: [],
+    story_shown_count: settings?.story_shown_count ?? 0,
+    story_last_shown_on: settings?.story_last_shown_on,
     installed_at: settings?.installed_at,
     last_erased_at: settings?.last_erased_at,
   };
@@ -129,7 +139,7 @@ export function hydrate(): Promise<void> {
     try {
       const d = await db();
       const loaded = fromSnapshot(await loadAll(d));
-      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), installed_at: loaded.installed_at ?? now() };
+      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), keys: await loadKeys(d), installed_at: loaded.installed_at ?? now() };
     } catch {
       state = { ...state, ready: true };
     }
@@ -202,6 +212,17 @@ export const actions = {
     state = { ...state, plays };
     emit();
     if (hasIdb() && state.ready) await putPlay(await db(), row).catch(() => void (saveFailed = true));
+  },
+  /** FR-T2.2–T2.6: add or update one line shown (D5). */
+  async saveKey(row: KeyRow) {
+    const i = state.keys.findIndex((k) => k.key_id === row.key_id);
+    state = { ...state, keys: i < 0 ? [...state.keys, row] : state.keys.map((k, j) => (j === i ? row : k)) };
+    emit();
+    if (hasIdb() && state.ready) await putKey(await db(), row).catch(() => void (saveFailed = true));
+  },
+  /** FR-T3.4: Sancho's story showed by itself today. */
+  storyShown(day: string) {
+    set({ ...state, story_shown_count: state.story_shown_count + 1, story_last_shown_on: day });
   },
   /** A recording a play or a fix pointed at (D2), kept with how it was matched. */
   keepRecording(facts: SongFacts, matched_by: RecordingRow["matched_by"]) {
