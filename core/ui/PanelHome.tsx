@@ -3,6 +3,7 @@
 import { noteAvailable } from "../src/note";
 import { useContext, useEffect, useState } from "react";
 import { Go, NavContext } from "./nav";
+import { handOver } from "./pending-file";
 import { hydrate, useStore } from "./store";
 
 export function PanelHome() {
@@ -34,6 +35,7 @@ export function PanelHome() {
         onDragLeave={() => setOver(false)}
         onDrop={(e) => {
           e.preventDefault();
+          handOver(e.dataTransfer.files[0]);
           nav.go("look-back");
         }}
       >

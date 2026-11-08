@@ -1,20 +1,42 @@
-/** FR-CORE-4 The check-A sheet and the swap test: four answers, mixed lines, the pass rule as written. */
+/** FR-CORE-4 The check-A sheet and the swap test: five answers that cover every case, mixed lines, the pass rule as written. */
 import { describe, expect, it } from "vitest";
 import { CHECK_A, mix, SWAP, swapResult, tallyCheckA, type Judged, type Swap } from "./judge";
 
 describe("check A", () => {
-  it("offers exactly the four answers, in the PRD's words", () => {
-    expect(CHECK_A).toEqual(["New to me, and true when I check", "New to me, but I don't care", "Moved me, taught me nothing", "Neither"]);
-  });
-  it("counts each answer", () => {
-    const t = tallyCheckA([
-      { line_id: "a", owner: "me", value: "Neither" },
-      { line_id: "b", owner: "me", value: "New to me, and true when I check" },
-      { line_id: "c", owner: "me", value: "Neither" },
+  it("offers five answers, in Bob's ruling's words", () => {
+    expect(CHECK_A).toEqual([
+      "True, new to me, and it matters to me",
+      "True and new to me, but I don't care",
+      "True, but I already knew it",
+      "Not true when I check",
+      "I can't check it",
     ]);
-    expect(t.Neither).toBe(2);
-    expect(t["New to me, and true when I check"]).toBe(1);
-    expect(t["Moved me, taught me nothing"]).toBe(0);
+  });
+  it("every case of true × new × matters lands on exactly one answer", () => {
+    type Truth = "true" | "not true" | "can't check";
+    const answerFor = (truth: Truth, isNew: boolean, matters: boolean): string[] =>
+      CHECK_A.filter((a) => {
+        if (a === "I can't check it") return truth === "can't check";
+        if (a === "Not true when I check") return truth === "not true";
+        if (truth !== "true") return false;
+        if (a === "True, but I already knew it") return !isNew;
+        if (a === "True, new to me, and it matters to me") return isNew && matters;
+        return isNew && !matters;
+      });
+    for (const truth of ["true", "not true", "can't check"] as Truth[])
+      for (const isNew of [true, false])
+        for (const matters of [true, false]) expect(answerFor(truth, isNew, matters), `${truth}/${isNew}/${matters}`).toHaveLength(1);
+  });
+  it("counts each answer, and ignores answers from the earlier set", () => {
+    const t = tallyCheckA([
+      { line_id: "a", owner: "me", value: "Not true when I check" },
+      { line_id: "b", owner: "me", value: "True, new to me, and it matters to me" },
+      { line_id: "c", owner: "me", value: "Not true when I check" },
+      { line_id: "d", owner: "me", value: "Neither" },
+    ]);
+    expect(t["Not true when I check"]).toBe(2);
+    expect(t["True, new to me, and it matters to me"]).toBe(1);
+    expect(Object.values(t).reduce((x, y) => x + y)).toBe(3);
   });
 });
 

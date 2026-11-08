@@ -7,11 +7,11 @@
  * FR-T1.6: "Erase everything in this browser" clears every store and records last_erased_at in D8.
  */
 import { keyName, parseKey } from "./design/key-colour";
-import type { CreditRole, NamedSong, SongFacts, Source } from "./model";
+import type { CreditRole, HistoryRow, NamedSong, SongFacts, Source } from "./model";
 import type { Choice, Words } from "./note";
 
 export const DB_NAME = "the-key";
-const VERSION = 1;
+const VERSION = 2; // 2: D11 Listening History
 
 export const STORES = {
   D2: "recording_id",
@@ -19,6 +19,7 @@ export const STORES = {
   D6: ["person_id", "question_id"],
   D8: "settings_id",
   D9: "event_id",
+  D11: "history_id",
   D12: "person_id",
   D13: "entry_id",
   D14: "words_id",
@@ -152,10 +153,46 @@ export function openDb(factory: IDBFactory = indexedDB): Promise<IDBDatabase> {
   const open = factory.open(DB_NAME, VERSION);
   open.onupgradeneeded = () => {
     for (const [name, keyPath] of Object.entries(STORES)) {
-      if (!open.result.objectStoreNames.contains(name)) open.result.createObjectStore(name, { keyPath: keyPath as string | string[] });
+      if (!open.result.objectStoreNames.contains(name)) {
+        const os = open.result.createObjectStore(name, { keyPath: keyPath as string | string[] });
+        if (name === "D11") os.createIndex("person", "person_id");
+      }
     }
   };
   return req(open);
+}
+
+// D11 is kept apart from the snapshot: a history is tens of thousands of rows, written once when a
+// file is read and removed with its person or by the erase, never rewritten on every change.
+
+/** Remove one person's rows inside a transaction, through the person index. */
+async function clearPerson(os: IDBObjectStore, person_id: string): Promise<void> {
+  const keys = await req(os.index("person").getAllKeys(person_id));
+  for (const k of keys) os.delete(k);
+}
+
+/** Replace one person's listening history. */
+export async function putHistory(db: IDBDatabase, person_id: string, rows: HistoryRow[]): Promise<void> {
+  const tx = db.transaction("D11", "readwrite");
+  const os = tx.objectStore("D11");
+  await clearPerson(os, person_id);
+  for (const r of rows) os.put(r);
+  await done(tx);
+}
+
+export async function deleteHistory(db: IDBDatabase, person_id: string): Promise<void> {
+  const tx = db.transaction("D11", "readwrite");
+  await clearPerson(tx.objectStore("D11"), person_id);
+  await done(tx);
+}
+
+/** Every history in this browser, by person, in time order. */
+export async function loadHistories(db: IDBDatabase): Promise<Record<string, HistoryRow[]>> {
+  const rows = (await req(db.transaction("D11").objectStore("D11").getAll())) as HistoryRow[];
+  const out: Record<string, HistoryRow[]> = {};
+  for (const r of rows) (out[r.person_id] ??= []).push(r);
+  for (const k of Object.keys(out)) out[k]!.sort((a, b) => a.ended_at_utc.localeCompare(b.ended_at_utc));
+  return out;
 }
 
 export async function loadAll(db: IDBDatabase): Promise<Snapshot> {

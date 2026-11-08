@@ -15,7 +15,7 @@ export interface Nav {
 
 export const NavContext = createContext<Nav>({ go: () => {} });
 
-export function Go({ to, children, className = "act" }: { to: View; children: ReactNode; className?: string }) {
+export function Go({ to, children, className = "act", onGo }: { to: View; children: ReactNode; className?: string; onGo?: () => void }) {
   const nav = useContext(NavContext);
   if (nav.href) {
     return (
@@ -23,6 +23,7 @@ export function Go({ to, children, className = "act" }: { to: View; children: Re
         className={className}
         href={nav.href(to)}
         onClick={(e) => {
+          onGo?.();
           if (e.metaKey || e.ctrlKey || e.shiftKey) return;
           e.preventDefault();
           nav.go(to);
@@ -33,7 +34,7 @@ export function Go({ to, children, className = "act" }: { to: View; children: Re
     );
   }
   return (
-    <button type="button" className={className} onClick={() => nav.go(to)}>
+    <button type="button" className={className} onClick={() => { onGo?.(); nav.go(to); }}>
       {children}
     </button>
   );

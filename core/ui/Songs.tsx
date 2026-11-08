@@ -13,6 +13,7 @@ import type { FetchFn } from "../src/sources/http";
 import { searchSongs, type Candidate } from "../src/sources/musicbrainz";
 import { edgeStyle, KeyChip } from "./KeyChip";
 import { LineAcross } from "./LineAcross";
+import { setJudgeSource } from "./judge-source";
 import { Go } from "./nav";
 import { actions, hydrate, MAX_SONGS, ME, others, songsOf, useStore } from "./store";
 
@@ -251,7 +252,7 @@ export function Songs() {
 
       <div className="row">
         {person === ME && noteAvailable(st.choices, st.words, ME) && <Go to="note">Your taste in words, so far</Go>}
-        {lines.length > 0 && <Go to="judge">Judge these lines</Go>}
+        {lines.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
       </div>
       {person === ME && <AddPerson onAdded={setPerson} />}
     </section>

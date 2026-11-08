@@ -5,9 +5,9 @@
  * IndexedDB in this browser (src/storage.ts) and saved after every change; read once when a page opens.
  */
 import { useSyncExternalStore } from "react";
-import type { Found, NamedSong, Part, Song, SongFacts } from "../src/model";
+import type { Found, HistoryRow, NamedSong, Part, Song, SongFacts } from "../src/model";
 import type { Choice, Words } from "../src/note";
-import { eraseAll, fromRows, loadAll, openDb, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
+import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, openDb, putHistory, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
   /** False until the rows saved in this browser have been read. */
@@ -20,11 +20,13 @@ export interface State {
   choices: Choice[];
   words: Words[];
   events: UsageEvent[];
+  /** D11, by person: Spotify plays read from a file dropped in this browser. */
+  histories: Record<string, HistoryRow[]>;
   installed_at?: string;
   last_erased_at?: string;
 }
 
-const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [] };
+const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {} };
 
 let state: State = EMPTY;
 const listeners = new Set<() => void>();
@@ -85,6 +87,7 @@ export function fromSnapshot(snap: Snapshot): State {
     choices: byTime(snap.choices, (c) => c.answered_at),
     words: byTime(snap.words, (w) => w.written_at),
     events: byTime(snap.events, (e) => e.at),
+    histories: {},
     installed_at: settings?.installed_at,
     last_erased_at: settings?.last_erased_at,
   };
@@ -121,8 +124,9 @@ export function hydrate(): Promise<void> {
       return;
     }
     try {
-      const loaded = fromSnapshot(await loadAll(await db()));
-      state = { ...loaded, installed_at: loaded.installed_at ?? now() };
+      const d = await db();
+      const loaded = fromSnapshot(await loadAll(d));
+      state = { ...loaded, histories: await loadHistories(d), installed_at: loaded.installed_at ?? now() };
     } catch {
       state = { ...state, ready: true };
     }
@@ -167,8 +171,8 @@ export const actions = {
     set({ ...state, words: [...state.words.filter((x) => x.about !== w.about || x.person_id !== w.person_id), { ...w, words_id: id(), written_at: now() }] });
   },
   /** FR-T9.1: a second person for the swap test, with the consent note in the user's own words. */
-  addPerson(label: string, consent_note: string): string {
-    const p: Person = { person_id: `person-${id()}`, label: label.trim(), source: "named songs", consent_note: `${consent_note.trim()} (${now().slice(0, 10)})`, loaded_at: now() };
+  addPerson(label: string, consent_note: string, source: Person["source"] = "named songs"): string {
+    const p: Person = { person_id: `person-${id()}`, label: label.trim(), source, consent_note: `${consent_note.trim()} (${now().slice(0, 10)})`, loaded_at: now() };
     set({ ...state, people: [...state.people, p] });
     return p.person_id;
   },
@@ -176,6 +180,17 @@ export const actions = {
   judge(e: Omit<UsageEvent, "event_id" | "at">) {
     const others = state.events.filter((x) => !(x.kind === e.kind && x.question_id === e.question_id && x.person_id === e.person_id && x.judge_id === e.judge_id));
     set({ ...state, events: [...others, { ...e, event_id: id(), at: now() }] });
+  },
+  /** T5.7: keep a person's plays read from their Spotify file (replacing any read before). */
+  async keepHistory(person_id: string, rows: HistoryRow[]) {
+    const mine = rows.map((r, i) => ({ ...r, person_id, history_id: `${person_id}:${i}` }));
+    set({ ...state, histories: { ...state.histories, [person_id]: mine } });
+    if (hasIdb()) await putHistory(await db(), person_id, mine).catch(() => void (saveFailed = true));
+  },
+  async removeHistory(person_id: string) {
+    const { [person_id]: _gone, ...rest } = state.histories;
+    set({ ...state, histories: rest });
+    if (hasIdb()) await deleteHistory(await db(), person_id).catch(() => void (saveFailed = true));
   },
   /** FR-T1.6: clears every store in this browser; only the time of the erase is kept. */
   async eraseEverything() {
