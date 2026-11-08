@@ -68,6 +68,24 @@ describe("the planted cases that broke v5", () => {
   });
 });
 
+describe("v6.1: a generic title names no song (the first launch-gate run)", () => {
+  it("Hans Zimmer's 1990 Main Theme is never taken for a video of The Dark Knight Rises", () => {
+    const title = "【蝙蝠侠｜黑暗骑士崛起】百万级录音棚听Hans Zimmer《Main theme》蝙蝠侠:黑暗骑士崛起主题曲【Hi-Res】";
+    const birdOnAWire = rec("bw", "Main Theme", "Hans Zimmer", [rel("1990-05-18")]);
+    const r = decide(parseTitle(title), [birdOnAWire]);
+    expect(r.state).toBe("silent");
+    expect(r.state === "silent" && r.reason).toBe("a generic title");
+  });
+  it("covers the common generic names, in English and Chinese, in any case or spacing", () => {
+    for (const t of ["Main Title", "MAIN THEME", "End Credits", "Overture", "主题曲", "Opening Titles"]) {
+      expect(decide(parseTitle(`Juniper Varga《${t}》`), [rec("x", t, "Juniper Varga")]).state, t).toBe("silent");
+    }
+  });
+  it("a title that merely contains such a word is not generic", () => {
+    expect(decide(parseTitle("Juniper Varga《Theme from Glass Harbour》"), [rec("x", "Theme from Glass Harbour", "Juniper Varga")]).state).toBe("certain");
+  });
+});
+
 describe("the studio filter and the silences", () => {
   const p = parseTitle("Juniper Varga《Glass Harbour》");
   const reason = (rs: MbRecording[]) => {

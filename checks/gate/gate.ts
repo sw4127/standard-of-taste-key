@@ -12,6 +12,8 @@ import type { Candidate, Silence } from "../../core/src/match/v6";
 export const GATE_SIZE = 50;
 /** The uploader whose lists tuned v6 (Stage 7). */
 export const TUNING_UPLOADER = "百万豪装录音棚大声听";
+/** Every uploader whose lists have tuned the rule: v6 (Stage 7), and v6.1 after the first gate run (2026-11-08). */
+export const TUNING_UPLOADERS = [TUNING_UPLOADER, "JLRS-jayfm"];
 
 /**
  * Each match gets exactly one mark, and every case lands on one: check the song, then the artist, then
@@ -41,7 +43,8 @@ export interface GateRow {
  * list page shows beside each title) are left out, and so are repeats.
  */
 export function titlesFrom(pasted: string): string[] {
-  const junk = /^(?:\d{1,2}:\d{2}(?::\d{2})?|[\d.,]+\s*(?:万|亿|k|K)?|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}|\d+\s*(?:播放|弹幕|views?))$/;
+  // Bilibili shows dates as 2023年2月20日 or 2月20日, counts as 365.3万; found in Bob's first gate run.
+  const junk = /^(?:\d{1,2}:\d{2}(?::\d{2})?|[\d.,]+\s*(?:万|亿|k|K)?|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}|(?:\d{4}年)?\d{1,2}月\d{1,2}日|\d+\s*(?:播放|弹幕|views?)|\d+\s*(?:小时|分钟|天)前|昨天|前天)$/;
   const out: string[] = [];
   for (const raw of pasted.split(/\r?\n/)) {
     const t = raw.replace(/\s+/g, " ").trim();
@@ -57,8 +60,9 @@ const SEEN = new Set(MATCH_FIXTURES.map((f) => normalise(f.title)));
 export function listProblems(uploader: string, titles: string[]): string[] {
   const out: string[] = [];
   if (!uploader.trim()) out.push("Name the uploader whose list the titles come from.");
-  if (normalise(uploader).includes(normalise(TUNING_UPLOADER)) || titles.some((t) => t.includes(TUNING_UPLOADER))) {
-    out.push(`The list must come from an uploader other than ${TUNING_UPLOADER}, whose lists tuned the rule.`);
+  const tuned = TUNING_UPLOADERS.find((u) => normalise(uploader).includes(normalise(u)) || titles.some((t) => t.includes(u)));
+  if (tuned) {
+    out.push(`The list must come from an uploader whose lists have not tuned the rule (not ${TUNING_UPLOADERS.join(" or ")}).`);
   }
   const seen = titles.filter((t) => SEEN.has(normalise(t)));
   if (seen.length) out.push(`${seen.length} of these titles were used to write or tune the rule: ${seen.slice(0, 3).join(" · ")}${seen.length > 3 ? " …" : ""}`);

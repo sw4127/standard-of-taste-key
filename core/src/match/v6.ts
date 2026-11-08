@@ -14,10 +14,24 @@ import { MB, mbGate } from "../sources/musicbrainz";
 import { stripNotes, parseTitle, type Parsed } from "./parse";
 import { creditText, hasVersionWord, normalise, type MbRecording } from "./studio";
 
-export const RULE_VERSION = "v6";
+export const RULE_VERSION = "v6.1";
+
+/**
+ * v6.1 (2026-11-08, after the first launch-gate run): a generic title names no song. "Main theme" by
+ * Hans Zimmer matched his 1990 "Main Theme" (Bird on a Wire) for a video of The Dark Knight Rises,
+ * because a prolific composer holds many recordings of one generic title and the rule took the
+ * earliest. Such a title stays silent, whoever the artist is.
+ */
+export const GENERIC_TITLES = new Set([
+  "maintheme", "maintitle", "maintitles", "theme", "themesong", "titletheme", "title", "titles", "opening", "openingtheme",
+  "openingtitles", "openingcredits", "ending", "endingtheme", "endcredits", "endtitles", "closingcredits", "credits",
+  "intro", "introduction", "outro", "overture", "prologue", "epilogue", "suite", "finale", "interlude", "ost", "soundtrack",
+  "score", "主题曲", "主题", "片头曲", "片头", "片尾曲", "片尾", "插曲", "序曲", "配乐", "原声", "原声带",
+]);
 
 export type Silence =
   | "the title names no song"
+  | "a generic title"
   | "the title names no artist"
   | "no candidate"
   | "no studio recording"
@@ -76,6 +90,7 @@ export function decide(parsed: Parsed, found: MbRecording[]): MatchResult {
   const all = [...byId.values()];
   const candidates = (rs: MbRecording[]) => rs.slice(0, 8).map(toCandidate);
   if (!parsed.queries.length) return { state: "silent", reason: "the title names no song", candidates: [], parsed };
+  if (parsed.queries.every((q) => GENERIC_TITLES.has(normalise(q.track)))) return { state: "silent", reason: "a generic title", candidates: candidates(all), parsed };
   if (!parsed.queries.some((q) => q.artists.length)) return { state: "silent", reason: "the title names no artist", candidates: candidates(all), parsed };
 
   const c = all.filter((r) =>

@@ -14,13 +14,16 @@ const sheet = (matched: GateRow[]) => [...matched, ...Array.from({ length: GATE_
 describe("the list", () => {
   it("takes one title per line, leaving out durations, counts, dates and repeats", () => {
     expect(titlesFrom("Singer《Song》\n03:45\n12.3万\n2026-11-01\n\n  Singer《Song》 \n另一位《歌》\n1234播放")).toEqual(["Singer《Song》", "另一位《歌》"]);
+    // As Bilibili's list page shows them (Bob's first gate run): a date in Chinese, a count, comments, a duration.
+    expect(titlesFrom("【片名】Singer《Song》【Hi-Res】\n365.3万\n3013\n12:40\n【片名】Singer《Song》【Hi-Res】\n2023年2月20日\n3月4日\n5小时前\n昨天")).toEqual(["【片名】Singer《Song》【Hi-Res】"]);
   });
   it("must be exactly 50 titles, from a named uploader other than the one that tuned v6, none seen before", () => {
     expect(listProblems("Example Uploader", fresh(50))).toEqual([]);
     expect(listProblems("Example Uploader", fresh(49))[0]).toMatch(/exactly 50/);
     expect(listProblems("", fresh(50))[0]).toMatch(/Name the uploader/);
-    expect(listProblems(TUNING_UPLOADER, fresh(50)).join()).toMatch(/other than/);
-    expect(listProblems("Example Uploader", [...fresh(49), `某人《某歌》${TUNING_UPLOADER}`]).join()).toMatch(/other than/);
+    expect(listProblems(TUNING_UPLOADER, fresh(50)).join()).toMatch(/have not tuned/);
+    expect(listProblems("JLRS-jayfm", fresh(50)).join()).toMatch(/have not tuned/);
+    expect(listProblems("Example Uploader", [...fresh(49), `某人《某歌》${TUNING_UPLOADER}`]).join()).toMatch(/have not tuned/);
     expect(listProblems("Example Uploader", [...fresh(49), MATCH_FIXTURES[60]!.title]).join()).toMatch(/used to write or tune/);
   });
 });
