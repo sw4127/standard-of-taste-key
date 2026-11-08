@@ -45,10 +45,13 @@ export interface GateRow {
 export function titlesFrom(pasted: string): string[] {
   // Bilibili shows dates as 2023年2月20日 or 2月20日, counts as 365.3万; found in Bob's first gate run.
   const junk = /^(?:\d{1,2}:\d{2}(?::\d{2})?|[\d.,]+\s*(?:万|亿|k|K)?|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}|(?:\d{4}年)?\d{1,2}月\d{1,2}日|\d+\s*(?:播放|弹幕|views?)|\d+\s*(?:小时|分钟|天)前|昨天|前天)$/;
+  // Copying an uploader's space page also brings its tabs and times like "昨天 00:14" (Bob's second run).
+  const when = /^(?:昨天|前天|今天)\s*\d{1,2}:\d{2}$/;
+  const pageLabels = new Set(["TA的视频", "最新发布", "最多播放", "最多收藏", "播放全部", "全部", "视频", "合集", "合集和列表", "收藏夹", "动态", "主页", "投稿", "查看更多", "更多", "默认排序"]);
   const out: string[] = [];
   for (const raw of pasted.split(/\r?\n/)) {
     const t = raw.replace(/\s+/g, " ").trim();
-    if (!t || junk.test(t)) continue;
+    if (!t || junk.test(t) || when.test(t) || pageLabels.has(t)) continue;
     if (!out.includes(t)) out.push(t);
   }
   return out;

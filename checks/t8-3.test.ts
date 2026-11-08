@@ -17,6 +17,9 @@ describe("the list", () => {
     // As Bilibili's list page shows them (Bob's first gate run): a date in Chinese, a count, comments, a duration.
     expect(titlesFrom("【片名】Singer《Song》【Hi-Res】\n365.3万\n3013\n12:40\n【片名】Singer《Song》【Hi-Res】\n2023年2月20日\n3月4日\n5小时前\n昨天")).toEqual(["【片名】Singer《Song》【Hi-Res】"]);
   });
+  it("leaves out what copying an uploader's space page brings with it (Bob's second run)", () => {
+    expect(titlesFrom("TA的视频\n最新发布\n最多播放\n最多收藏\n[中字] Song - Singer\n昨天 00:14\n12:40")).toEqual(["[中字] Song - Singer"]);
+  });
   it("must be exactly 50 titles, from a named uploader other than the one that tuned v6, none seen before", () => {
     expect(listProblems("Example Uploader", fresh(50))).toEqual([]);
     expect(listProblems("Example Uploader", fresh(49))[0]).toMatch(/exactly 50/);
