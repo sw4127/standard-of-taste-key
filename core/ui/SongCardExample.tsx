@@ -48,12 +48,12 @@ export function SongCardExample() {
               Your friend has played this artist {f.artistPlays} times.
             </button>
             <p className="record">
-              Where to start: {f.record.title}, the record they played most, in {f.record.quarter}.
+              Where to start: {f.record.title}, the record they played most, mostly between April and June 2025.
             </p>
             <div className="row">
               <KeyChip k={SONG.key} />
               <button type="button" className="act" aria-expanded={proof} onClick={() => setProof((p) => !p)}>
-                {proof ? "Hide the proof" : "The proof"}
+                {proof ? "Hide the evidence" : "See the evidence"}
               </button>
               <button type="button" className="act" onClick={() => setDropped(true)}>
                 Not why I love it
@@ -63,11 +63,11 @@ export function SongCardExample() {
               <div className="evidence stack">
                 <p className="label">Behind this line</p>
                 <ul className="plain">
-                  <li className="record">{f.artistPlays} plays of {SONG.artist_credit} of 30 seconds or more</li>
+                  <li className="record">{f.artistPlays} plays of {SONG.artist_credit}, each 30 seconds or longer</li>
                   <li className="record">
-                    {f.record.title}: {f.record.plays} plays, most of them in {f.record.quarter}
+                    {f.record.title}: {f.record.plays} plays, most of them between April and June 2025
                   </li>
-                  <li className="record">Their most played songs by this artist: {f.topSongs.map((s) => `${s.title} (${s.plays})`).join(", ")}</li>
+                  <li className="record">Their most-played songs by this artist: {f.topSongs.map((s) => `${s.title} (${s.plays})`).join(", ")}</li>
                 </ul>
                 <p className="meta">From your friend's Spotify file (example), counted in this browser.</p>
               </div>
@@ -84,13 +84,13 @@ export function SongCardExample() {
       </article>
 
       <div className="card stack example-controls">
-        <p className="label">Example controls: stand in for the video</p>
+        <p className="label">Example controls (in place of a real video)</p>
         <p className="record">
           Heard {mmss(heard)} of this song. On a first play the line waits until {mmss(FIRST_PLAY_WAIT)} heard; on a song you have played before, until 0:15.
         </p>
         <div className="row">
           <button type="button" className="act act-button" onClick={() => setPlaying((p) => !p)}>
-            {playing ? "Pause" : heard ? "Play on" : "Play"}
+            {playing ? "Pause" : heard ? "Resume" : "Play"}
           </button>
           <button type="button" className="act act-button" disabled={!playing} onClick={() => setHeard((h) => h + 15)}>
             Skip ahead 15 s

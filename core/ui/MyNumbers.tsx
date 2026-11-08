@@ -9,7 +9,7 @@ import { exportRecord, laterPlayed, songTimes } from "../src/numbers";
 import { actions, hydrate, others, toSnapshot, useStore } from "./store";
 
 const ACT_WORDS: Record<string, string> = {
-  proof_opened: "opened the proof",
+  proof_opened: "opened the evidence",
   made_opened: "opened how it was made",
   next_search_opened: "searched for the next record",
   uploader_opened: "opened the uploader's page",
@@ -39,10 +39,10 @@ export function MyNumbers() {
   return (
     <section className="stack-lg">
       <p className="line">My numbers</p>
-      <p className="record">For each song played beside the panel: seconds from the start until its line was ready, until it was shown, and until you first acted on it.</p>
+      <p className="record">For each song you played with the panel open: seconds from the song's start until its line was ready, was shown, and was first acted on.</p>
 
       {times.length === 0 ? (
-        <p className="record">No song has played beside the panel yet.</p>
+        <p className="record">No songs played with the panel open yet.</p>
       ) : (
         <ul className="plain stack">
           {times.map((t) => (
@@ -51,7 +51,7 @@ export function MyNumbers() {
                 <span className="song-name">{t.song}</span> · {t.started_at.slice(0, 16).replace("T", " ")}
               </p>
               <p className="record">
-                Ready {s(t.ready)} · shown {s(t.shown)} · {t.firstAct ? `first act: ${ACT_WORDS[t.firstAct.kind]}, ${t.firstAct.after} s` : "no act"}
+                Ready {s(t.ready)} · shown {s(t.shown)} · {t.firstAct ? `first action: ${ACT_WORDS[t.firstAct.kind]}, ${t.firstAct.after} s` : "no action"}
               </p>
             </li>
           ))}
@@ -75,10 +75,10 @@ export function MyNumbers() {
 
       <div className="card stack">
         <p className="label">Export my record</p>
-        <p className="record">One file with everything this browser keeps for The Key: your plays, songs, readings, words, the lines shown and this log.</p>
+        <p className="record">One file with everything this browser keeps for The Key: your plays, songs, readings, words, the lines shown and these timings.</p>
         {people.length > 0 && (
           <label className="record">
-            <input type="checkbox" checked={includeOthers} onChange={(e) => setIncludeOthers(e.target.checked)} /> Include other people&#39;s rows ({people.map((p) => p.label).join(", ")})
+            <input type="checkbox" checked={includeOthers} onChange={(e) => setIncludeOthers(e.target.checked)} /> Include other people&#39;s data ({people.map((p) => p.label).join(", ")})
           </label>
         )}
         <button type="button" className="act" onClick={download}>

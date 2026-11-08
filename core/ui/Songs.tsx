@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FOUND, PARTS, type Found, type NamedSong, type Part, type SongFacts } from "../src/model";
 import { linesAcross, MIN_SONGS_FOR_LINES } from "../src/patterns";
+import { theirName } from "../src/firstwords";
 import { noteAvailable } from "../src/note";
 import { confirmSong } from "../src/sources/confirm";
 import type { FetchFn } from "../src/sources/http";
@@ -53,7 +54,7 @@ function SongEntry({ entry, facts, open, onToggle }: { entry: NamedSong; facts: 
           <p className="meta">Both are optional. Tap again to clear.</p>
         </>
       ) : (
-        answers.length > 0 && <p className="record">Your answer: {answers.join(" · ")}</p>
+        answers.length > 0 && <p className="record">{answers.length === 1 ? "Your answer" : "Your answers"}: {answers.join(" · ")}</p>
       )}
       <div className="row">
         <button type="button" className="act" aria-expanded={open} onClick={onToggle}>
@@ -123,13 +124,13 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
         className="field"
         type="search"
         autoComplete="off"
-        placeholder={full ? "Ten songs is the most" : "For example: Dancing Queen ABBA"}
+        placeholder={full ? "Ten songs is the limit" : "For example: Dancing Queen ABBA"}
         disabled={full}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
       {search.state === "looking" && <p className="meta" role="status">Looking in MusicBrainz…</p>}
-      {search.state === "failed" && <p className="meta" role="status">MusicBrainz did not answer. Try again in a moment.</p>}
+      {search.state === "failed" && <p className="meta" role="status">Couldn't reach MusicBrainz. Try again in a moment.</p>}
       {search.state === "found" && results.length === 0 && (
         <p className="meta" role="status">MusicBrainz has no studio song matching “{text.trim()}”. Adding the artist&#39;s name can help.</p>
       )}
@@ -171,11 +172,11 @@ function AddPerson({ onAdded }: { onAdded: (id: string) => void }) {
         if (ready) onAdded(actions.addPerson(label, consent));
       }}
     >
-      <p className="record">Their songs and lines stay apart from yours and never enter your note. They are used for the swap test.</p>
+      <p className="record">Their songs and lines stay separate from yours and never appear on your note. They&#39;re used for the swap test: lines from both of you, mixed, to see if you can pick out your own.</p>
       <label className="label" htmlFor="person-label">What you call them</label>
       <input id="person-label" className="field" value={label} placeholder="my friend" onChange={(e) => setLabel(e.target.value)} />
       <label className="label" htmlFor="person-consent">Their agreement, in your words</label>
-      <textarea id="person-consent" className="field words-box" value={consent} placeholder="They said I can keep their songs here for the swap test." onChange={(e) => setConsent(e.target.value)} />
+      <textarea id="person-consent" className="field words-box" value={consent} placeholder="They said I can keep their songs here." onChange={(e) => setConsent(e.target.value)} />
       <div className="row">
         <button type="submit" className="act" disabled={!ready}>
           Add them
@@ -212,17 +213,17 @@ export function Songs() {
           </button>
           {people.map((p) => (
             <button key={p.person_id} type="button" className="act act-button" aria-pressed={person === p.person_id} onClick={() => setPerson(p.person_id)}>
-              Songs {p.label} named
+              Songs {theirName(p.label)} named
             </button>
           ))}
         </div>
       )}
-      <p className="line">{who ? `Songs ${who.label} named. Any order. No ranking.` : "Name a few songs that come to mind. Any order. No ranking."}</p>
+      <p className="line">{who ? `Songs ${theirName(who.label)} named. Any order. No ranking.` : "Name a few songs that come to mind. Any order. No ranking."}</p>
 
       <SongSearch person={person} full={full} have={new Set(songs.map((s) => s.facts.recording_id))} onAdded={setOpen} />
 
       {songs.length > 0 && (
-        <ul className="plain" aria-label={who ? `Songs ${who.label} named` : "Your songs"}>
+        <ul className="plain" aria-label={who ? `Songs ${theirName(who.label)} named` : "Your songs"}>
           {songs.map((s) => (
             <SongEntry key={s.entry.entry_id} entry={s.entry} facts={s.facts} open={open === s.entry.entry_id} onToggle={() => setOpen(open === s.entry.entry_id ? null : s.entry.entry_id)} />
           ))}

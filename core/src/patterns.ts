@@ -104,29 +104,29 @@ function keyLine(songs: Song[]): PatternLine | null {
   const sharedKey = shared ? keyName(shared[0]!.facts.key as Key) : "";
   const evidence: Evidence[] = measured.map((s) => ({
     entry_id: s.entry.entry_id,
-    text: `${songLabel(s)} · ${keyName(s.facts.key!)} (key strength ${s.facts.key!.strength.toFixed(2)})`,
+    text: `${songLabel(s)} · ${keyName(s.facts.key!)} (how clearly the key came through: ${s.facts.key!.strength.toFixed(2)} out of 1)`,
     source: s.facts.key!.source,
   }));
   const chances: string[] = [];
   if (majorHolds) {
     chances.push(
-      `${cap(num(major))} or more of ${num(n)} in a major key would happen ${inHundred(binomialAtLeast(major, n))} if major and minor were equally likely; in real music they are not, so the true chance differs.`,
+      `If major and minor were equally likely, ${inHundred(binomialAtLeast(major, n))} random sets of ${num(n)} songs would have ${num(major)} or more in a major key. Real music isn't split evenly, so the true chance is different.`,
     );
   }
   if (shared) {
     chances.push(
-      `${cap(num(shared.length))} of ${num(n)} on one key happens ${inHundred(sharedKeyChance(shared.length, n))} if all 24 keys were equally likely; real songs favour some keys, so the true chance is higher.`,
+      `If all 24 keys were equally likely, ${inHundred(sharedKeyChance(shared.length, n))} random sets of ${num(n)} songs would have ${num(shared.length)} or more in one key. Real songs favour some keys, so the true chance is higher.`,
     );
   }
   const gloss = "A key is the set of notes a song is built on, with one home note it keeps returning to.";
   const ids = (majorHolds ? measured : shared!).map((s) => s.entry.entry_id);
 
   if (majorHolds) {
-    const tail = shared ? `, and ${num(shared.length)} share one: ${sharedKey}.` : ".";
+    const tail = shared ? `, and ${num(shared.length)} are in ${sharedKey}.` : ".";
     return {
       id: `key-major:${major}/${n}${shared ? `:${sharedKey}` : ""}`,
       kind: "key-major",
-      pattern: `${cap(num(major))} of your ${num(n)} measured songs are in a major key${tail}`,
+      pattern: `Of the ${num(n)} songs whose key could be measured, ${num(major)} are in a major key${tail}`,
       gloss,
       evidence,
       chance: chances.join(" "),
@@ -138,7 +138,7 @@ function keyLine(songs: Song[]): PatternLine | null {
   return {
     id: `key-shared:${sharedKey}:${shared!.length}/${n}`,
     kind: "key-shared",
-    pattern: `${cap(num(shared!.length))} of your ${num(n)} measured songs share one key, ${sharedKey}, across ${num(artists)} different artists.`,
+    pattern: `${cap(num(shared!.length))} of the ${num(n)} songs whose key could be measured are in ${sharedKey}, and they're by ${num(artists)} different artists.`,
     gloss,
     evidence,
     chance: chances.join(" "),
@@ -199,11 +199,11 @@ function partLine(songs: Song[]): PatternLine | null {
   if ([...counts.values()].filter((v) => v === c).length > 1) return null;
   const kind = `part:${top}` as const;
   if (!KIND_TEMPLATES[kind]) return null; // no cited definition for this part: no readings, no line
-  const never = top !== "the chorus" && !counts.has("the chorus") ? ", and never the chorus." : ".";
+  const never = top !== "the chorus" && !counts.has("the chorus") ? ", and never “the chorus”." : ".";
   return {
     id: `${kind}:${c}/${m}`,
     kind,
-    pattern: `Where you named the part you come back for, it was ${top} in ${num(c)} of ${num(m)} songs${never}`,
+    pattern: `In ${num(c)} of the ${num(m)} songs where you said what you come back for, you picked “${top}”${never}`,
     evidence: answered.map((s) => ({ entry_id: s.entry.entry_id, text: `${songLabel(s)}: ${s.entry.comes_back_for}`, source: YOUR_ANSWER })),
     ...offered(kind),
     entry_ids: answered.map((s) => s.entry.entry_id),
@@ -234,7 +234,7 @@ function releaseLine(songs: Song[]): PatternLine | null {
     pattern: `${cap(num(best.length))} of your ${num(n)} songs came out ${when}.`,
     evidence: d.map((s) => ({
       entry_id: s.entry.entry_id,
-      text: `${songLabel(s)} · first release ${s.facts.date_source.label} lists: ${s.facts.first_release_year}`,
+      text: `${songLabel(s)} · first released in ${s.facts.first_release_year}, according to ${s.facts.date_source.label}`,
       source: s.facts.date_source,
       date_of: s.facts.recording_id,
     })),
@@ -264,7 +264,7 @@ function foundLaterLine(songs: Song[], now: Date): PatternLine | null {
     pattern: `${cap(num(later.length))} of your songs found you at least two years after they came out.`,
     evidence: later.map((s) => ({
       entry_id: s.entry.entry_id,
-      text: `${songLabel(s)} · first release ${s.facts.date_source.label} lists: ${s.facts.first_release_year} · found you: ${s.entry.found_me} (your answer)`,
+      text: `${songLabel(s)} · first released in ${s.facts.first_release_year}, according to ${s.facts.date_source.label} · found you: ${s.entry.found_me} (your answer)`,
       source: s.facts.date_source,
       date_of: s.facts.recording_id,
     })),

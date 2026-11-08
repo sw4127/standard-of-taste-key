@@ -8,7 +8,7 @@
  * eligible line, or the quiet line, takes its place. Every sentence passes FR-CORE-2 before it shows.
  */
 import { breaches } from "./checks";
-import { MIN_MS, quarterLabel, type Quarter } from "./lookback";
+import { MIN_MS, quarterPhrase, type Quarter } from "./lookback";
 import { normalise } from "./match/studio";
 import type { HistoryRow, KeyRow, PlayRow, SongFacts } from "./model";
 import { num } from "./patterns";
@@ -54,7 +54,7 @@ export interface FirstLine {
 export const OWN_READINGS: Record<"own-recording" | "own-artist", [Reading, Reading]> = {
   "own-recording": [
     { template_id: "own-recording/a", ask: "Does it belong to a certain time of day for you?", kept: "it may belong to a certain time of day for you" },
-    { template_id: "own-recording/b", ask: "Or does it come back whatever the hour?", kept: "it comes back whatever the hour" },
+    { template_id: "own-recording/b", ask: "Or do you play it at any hour?", kept: "you play it at any hour" },
   ],
   "own-artist": [
     { template_id: "own-artist/a", ask: "Is there one song of theirs you keep returning to?", kept: "one song of theirs may be the one you return to" },
@@ -80,7 +80,7 @@ function playsLine(ps: PlayRow[], kind: "own-recording" | "own-artist", who: str
   return {
     kind,
     template_id: `first:${kind}`,
-    text: `You've played ${who} on ${num(days.length)} separate days since you installed${tail}.`,
+    text: `You've played ${who} on ${num(days.length)} separate days since you installed The Key${tail}.`,
     readings: OWN_READINGS[kind],
     names: [who, ...ps.map((p) => p.song_title ?? p.page_title)],
     proof: ps.map((p) => ({ text: `${p.started_at.slice(0, 10)} ${p.started_at.slice(11, 16)} · ${p.song_title ?? p.page_title}`, source: "Your plays on Bilibili, counted in this browser" })),
@@ -103,7 +103,9 @@ const counts = <T,>(xs: T[], key: (x: T) => string) => {
   return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 };
 
-/** How the line names the friend: "my friend" becomes "Your friend"; any other label stays as typed. */
+/** How a line names someone the person added: "my friend" becomes "your friend" mid-sentence; any other label stays as typed. */
+export const theirName = (label: string) => (/^my\s+/i.test(label.trim()) ? `your ${label.trim().replace(/^my\s+/i, "")}` : label.trim());
+/** At the start of a sentence: "Your friend". */
 export const friendName = (label: string) => (/^my\s+/i.test(label.trim()) ? `Your ${label.trim().replace(/^my\s+/i, "")}` : cap(label.trim()));
 
 /**
@@ -125,7 +127,7 @@ export function friendLine(histories: Record<string, HistoryRow[]>, people: Pers
   const [album, albumPlays] = counts(rows, (r) => r.album)[0]!;
   const quarters = counts(rows.filter((r) => r.album === album), (r) => `${quarterOf(r).year}-${quarterOf(r).q}`);
   const [y, q] = quarters[0]![0].split("-").map(Number);
-  const when = quarterLabel({ year: y!, q: q as Quarter["q"] });
+  const when = quarterPhrase({ year: y!, q: q as Quarter["q"] });
   const songs = counts(rows, (r) => r.track).filter(([, n]) => n >= SONG_MIN_PLAYS).slice(0, 3);
   const who = friendName(person.label);
   const source = `${who}'s Spotify file, counted in this browser`;
@@ -133,13 +135,13 @@ export function friendLine(histories: Record<string, HistoryRow[]>, people: Pers
     kind: "friend",
     template_id: "first:friend",
     text: `${who} has played this artist ${rows.length} times.`,
-    under: `Where to start: ${album}, the record they played most, in ${when}.`,
+    under: `Where to start: ${album}, the record they played most, mostly ${when}.`,
     names: [who, artist, album, ...songs.map(([t]) => t)],
     record: album,
     proof: [
-      { text: `${rows.length} plays of ${artist} of 30 seconds or more`, source },
-      { text: `${album}: ${albumPlays} plays, most of them in ${when}`, source },
-      ...(songs.length ? [{ text: `Their most played songs by this artist: ${songs.map(([t, n]) => `${t} (${n})`).join(", ")}`, source }] : []),
+      { text: `${rows.length} plays of ${artist}, each 30 seconds or longer`, source },
+      { text: `${album}: ${albumPlays} plays, most of them ${when}`, source },
+      ...(songs.length ? [{ text: `Their most-played songs by this artist: ${songs.map(([t, n]) => `${t} (${n})`).join(", ")}`, source }] : []),
     ],
   };
 }

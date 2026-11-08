@@ -173,7 +173,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       {status.kind !== "reading" && !known && row?.match_state !== "not a song" && (
         <p className="record" role="status">
           I can&#39;t tell which recording this is.
-          {status.kind === "unreachable" && " MusicBrainz did not answer."}
+          {status.kind === "unreachable" && " Couldn't reach MusicBrainz."}
         </p>
       )}
       {status.kind !== "reading" && (
@@ -206,7 +206,7 @@ function FixList({ title, initial, onPick }: { title: string; initial: Candidate
   return (
     <div className="stack">
       {list === null && <p className="meta" role="status">Looking in MusicBrainz…</p>}
-      {list && list.length === 0 && <p className="meta">MusicBrainz offers no recording for this title.</p>}
+      {list && list.length === 0 && <p className="meta">MusicBrainz has no recording matching this title.</p>}
       {list && list.length > 0 && (
         <ul className="plain stack" aria-label="Recordings to pick from">
           {list.slice(0, 8).map((c) => (

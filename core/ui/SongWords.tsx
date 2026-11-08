@@ -237,7 +237,7 @@ export function SongWords({ song, play, heard }: { song: SongFacts; play: PlayRo
           <div className="row">
             <KeyChip k={song.key} />
             <button type="button" className="act" aria-expanded={proof} onClick={openProof}>
-              {proof ? "Hide the proof" : "The proof"}
+              {proof ? "Hide the evidence" : "See the evidence"}
             </button>
             <button type="button" className="act" onClick={drop}>
               Not why I love it

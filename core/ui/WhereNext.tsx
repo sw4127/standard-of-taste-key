@@ -10,6 +10,7 @@ import { friendLine } from "../src/firstwords";
 import type { NextRow, PlayRow, SongFacts } from "../src/model";
 import { criticsOf, dueAtEnd, findRecord, finishedByArtist, FINISHED_FOR_NEW, newRecord, ordered, searchLink, startTrack, tracksOf, uploaderLink, uploaderReason } from "../src/nextrecord";
 import type { FetchFn } from "../src/sources/http";
+import { num } from "../src/patterns";
 import { actions, useStore } from "./store";
 
 const fetchFn: FetchFn = (url) => fetch(url);
@@ -42,7 +43,7 @@ export function WhereNext({ song, play }: { song: SongFacts; play: PlayRow }) {
         reasons.push({ kind: "trusted_judge", text: `${friend.text} This is the record they played most.`, evidence: friend.proof.map((p) => p.text) });
       }
       if (fresh && rg.id === fresh.id) {
-        reasons.push({ kind: "artist_new", text: `A new record by ${song.lead_artist} (${fresh["first-release-date"]}); you have played ${done.length} of their songs to the end.`, evidence: done.map((r) => st.facts[r]?.title ?? r) });
+        reasons.push({ kind: "artist_new", text: `A new record by ${song.lead_artist} (${fresh["first-release-date"]}); you've played ${num(done.length)} of their songs all the way through.`, evidence: done.map((r) => st.facts[r]?.title ?? r) });
       }
       const why = ordered(reasons);
       if (!why.some((r) => r.kind !== "uploader")) return setS({ kind: "none" });
@@ -75,8 +76,8 @@ export function WhereNext({ song, play }: { song: SongFacts; play: PlayRow }) {
           Where next?
         </button>
       )}
-      {s.kind === "looking" && <p className="meta" role="status">Looking for a next record…</p>}
-      {s.kind === "none" && <p className="record">No next record to suggest yet.</p>}
+      {s.kind === "looking" && <p className="meta" role="status">Looking for a record to try next…</p>}
+      {s.kind === "none" && <p className="record">Nothing to suggest next yet.</p>}
       {row && (
         <div className="evidence stack">
           <p className="label">Where next</p>

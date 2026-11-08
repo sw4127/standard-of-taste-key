@@ -40,7 +40,7 @@ describe("came back", () => {
     const rows = [play("C", "2025-11-01"), play("C", "2026-07-02"), play("C", "2026-08-02"), play("C", "2026-09-02")];
     const lines = lookBack(rows, Q3);
     expect(lines.map((l) => l.id)).toEqual(["came-back:C"]);
-    expect(lines[0]!.pattern).toBe("C came back in July to September 2026 after 2 quarters away: you played them on 3 separate days.");
+    expect(lines[0]!.pattern).toBe("C came back between July and September 2026 after six months away: you played them on three separate days.");
     // present one quarter before the stretch: not "came back"
     expect(lookBack([play("C", "2026-05-01"), ...rows.slice(1)], Q3).some((l) => l.kind === "came-back")).toBe(false);
   });

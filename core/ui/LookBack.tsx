@@ -6,7 +6,8 @@
  */
 import { useContext, useEffect, useMemo, useState } from "react";
 import { exampleHistory } from "../src/examples";
-import { defaultStretch, lookBack, quarterLabel, quarters, summary, type LookBackLine, type Quarter } from "../src/lookback";
+import { defaultStretch, lookBack, quarterLabel, quarterPhrase, quarters, summary, type LookBackLine, type Quarter } from "../src/lookback";
+import { friendName } from "../src/firstwords";
 import type { HistoryRow } from "../src/model";
 import { NotAnExport, readExport } from "../src/spotify";
 import { setJudgeSource } from "./judge-source";
@@ -36,7 +37,7 @@ function LookBackCard({ line, stretch, owner }: { line: LookBackLine; stretch: Q
   };
   return (
     <article className="card stack">
-      <p className="label">{line.kind === "arrived" ? "Arrived and stayed" : line.kind === "left" ? "Left" : "Came back"}</p>
+      <p className="label">{line.kind === "arrived" ? "Arrived and stayed" : line.kind === "left" ? "Dropped off" : "Came back"}</p>
       <p className="line line-arrives">{line.pattern}</p>
       <button type="button" className="act" aria-expanded={plays} onClick={() => setPlays((o) => !o)}>
         {plays ? "Hide the plays" : `See the ${line.plays.length} plays`}
@@ -97,7 +98,7 @@ function Whose({ read, onKept, onCancel }: { read: Read; onKept: (person: string
           Someone else&#39;s
         </button>
         <button type="button" className="act" onClick={onCancel}>
-          Put it away
+          Cancel
         </button>
       </div>
       {someoneElse && (
@@ -121,7 +122,7 @@ function Whose({ read, onKept, onCancel }: { read: Read; onKept: (person: string
   );
 }
 
-const nameOf = (st: State, person: string) => (person === ME ? "Your file" : `${st.people.find((p) => p.person_id === person)?.label ?? "Someone"}'s file`);
+const nameOf = (st: State, person: string) => (person === ME ? "Your file" : `${friendName(st.people.find((p) => p.person_id === person)?.label ?? "someone")}'s file`);
 
 export function LookBack() {
   const st = useStore();
@@ -161,7 +162,7 @@ export function LookBack() {
       .catch((e) =>
         setNotice(
           e instanceof NotAnExport
-            ? "This file holds no Spotify listening history. The look back reads the .zip from Spotify's “Extended streaming history” request, which holds files named Streaming_History_Audio."
+            ? "This file has no Spotify listening history in it. Use the .zip Spotify sends when you request your “Extended streaming history”. It contains files named Streaming_History_Audio."
             : "This file could not be read. Nothing from it was kept.",
         ),
       )
@@ -264,7 +265,7 @@ export function LookBack() {
             </select>
             <p className="meta">Only plays of 30 seconds or more are counted.</p>
           </div>
-          {lines.length === 0 && <p className="record">Nothing arrived, left or came back in {quarterLabel(chosen)}.</p>}
+          {lines.length === 0 && <p className="record">Nothing arrived, dropped off or came back {quarterPhrase(chosen)}.</p>}
           {lines.map((l) => (
             <LookBackCard key={`${owner}:${quarterLabel(chosen)}:${l.id}`} line={l} stretch={chosen} owner={owner!} />
           ))}
@@ -287,7 +288,7 @@ export function LookBack() {
           )}
           {owner === EXAMPLE && (
             <button type="button" className="act" onClick={() => setViewing(null)}>
-              Put the example away
+              Close the example
             </button>
           )}
         </>

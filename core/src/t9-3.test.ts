@@ -31,9 +31,9 @@ describe("mode and key", () => {
   });
   it("names the major share and the shared key, with the chance figure and its assumption", () => {
     const line = linesAcross(four, NOW).find((l) => l.kind === "key-major")!;
-    expect(line.pattern).toBe("Four of your four measured songs are in a major key, and three share one: B-flat major.");
-    expect(line.chance).toMatch(/if major and minor were equally likely/);
-    expect(line.chance).toMatch(/if all 24 keys were equally likely/);
+    expect(line.pattern).toBe("Of the four songs whose key could be measured, four are in a major key, and three are in B-flat major.");
+    expect(line.chance).toMatch(/if major and minor were equally likely/i);
+    expect(line.chance).toMatch(/if all 24 keys were equally likely/i);
     expect(line.gloss).toBeTruthy();
   });
   it("a key shared only by one artist's songs is not a shared key", () => {
@@ -66,7 +66,7 @@ describe("the part named most", () => {
   it("a part named for at least half of three or more answers", () => {
     const songs = titles.map((t, i) => named(byTitle(t), i < 3 ? "the bridge" : "a verse"));
     const line = linesAcross(songs, NOW).find((l) => l.kind === "part:the bridge")!;
-    expect(line.pattern).toBe("Where you named the part you come back for, it was the bridge in three of four songs, and never the chorus.");
+    expect(line.pattern).toBe("In three of the four songs where you said what you come back for, you picked “the bridge”, and never “the chorus”.");
     expect(line.evidence.every((e) => e.source.label === "Your answer")).toBe(true);
   });
   it("two answers are not enough; a tie is no line; 'not sure' does not count", () => {
@@ -84,7 +84,7 @@ describe("when they came out, and 'That date is wrong'", () => {
   it("half or more of the songs inside one three-year window, at least three", () => {
     const line = linesAcross(songs(), NOW).find((l) => l.kind === "release-window")!;
     expect(line.pattern).toBe("Three of your four songs came out between 2020 and 2021.");
-    expect(line.evidence.every((e) => /first release .* lists: \d{4}/.test(e.text) && e.date_of)).toBe(true);
+    expect(line.evidence.every((e) => /first released in \d{4}, according to /.test(e.text) && e.date_of)).toBe(true);
   });
   it("a disputed date takes the song out of every date line", () => {
     const s = songs();

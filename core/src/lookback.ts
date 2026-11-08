@@ -7,6 +7,7 @@
  * Each line has its plays behind a tap and one pair of readings, plus Neither.
  */
 import { breaches } from "./checks";
+import { num } from "./patterns";
 import type { HistoryRow } from "./model";
 
 export const MIN_MS = 30_000;
@@ -19,6 +20,8 @@ export interface Quarter {
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 export const quarterLabel = (x: Quarter) => `${MONTHS[(x.q - 1) * 3]} to ${MONTHS[(x.q - 1) * 3 + 2]} ${x.year}`;
+/** The same stretch inside a sentence: "between April and June 2024". */
+export const quarterPhrase = (x: Quarter) => `between ${MONTHS[(x.q - 1) * 3]} and ${MONTHS[(x.q - 1) * 3 + 2]} ${x.year}`;
 const qIndex = (x: Quarter) => x.year * 4 + (x.q - 1);
 const fromIndex = (i: number): Quarter => ({ year: Math.floor(i / 4), q: ((i % 4) + 1) as Quarter["q"] });
 const dateOf = (r: HistoryRow) => r.local_time.slice(0, 10);
@@ -64,7 +67,7 @@ export const LOOKBACK_READINGS: Record<LookBackKind, LookBackLine["readings"]> =
   ],
   left: [
     { template_id: "lb-left/a", ask: "Did you move on from what this music gave you?", kept: "you may have moved on from what this music gave you" },
-    { template_id: "lb-left/b", ask: "Or did when and where you listened change?", kept: "when and where you listened changed" },
+    { template_id: "lb-left/b", ask: "Or did your routine change?", kept: "your routine changed" },
   ],
   "came-back": [
     { template_id: "lb-came-back/a", ask: "Did something bring this music back to mind?", kept: "something brought this music back to mind" },
@@ -85,7 +88,7 @@ export function lookBack(all: HistoryRow[], stretch: Quarter): LookBackLine[] {
   const days = (rs: HistoryRow[]) => new Set(rs.map(dateOf)).size;
   const playsOf = (rs: HistoryRow[]) =>
     rs.map((r) => ({ date: dateOf(r), track: r.track })).sort((a, b) => a.date.localeCompare(b.date));
-  const label = quarterLabel(stretch);
+  const label = quarterPhrase(stretch);
 
   const arrived: LookBackLine[] = [];
   const cameBack: LookBackLine[] = [];
@@ -100,7 +103,7 @@ export function lookBack(all: HistoryRow[], stretch: Quarter): LookBackLine[] {
     if (d >= 3 && before.length === 0) {
       arrived.push({
         id: `arrived:${artist}`, kind: "arrived", artist,
-        pattern: `${artist} arrived in ${label} and stayed: you played them on ${d} separate days.`,
+        pattern: `${artist} arrived ${label} and stayed: you played them on ${num(d)} separate days.`,
         plays: playsOf(inStretch), readings: LOOKBACK_READINGS.arrived,
       });
     }
@@ -109,7 +112,7 @@ export function lookBack(all: HistoryRow[], stretch: Quarter): LookBackLine[] {
       const away = s - lastBefore - 1;
       cameBack.push({
         id: `came-back:${artist}`, kind: "came-back", artist,
-        pattern: `${artist} came back in ${label} after ${away} quarters away: you played them on ${d} separate days.`,
+        pattern: `${artist} came back ${label} after ${num(away * 3)} months away: you played them on ${num(d)} separate days.`,
         plays: playsOf(inStretch), readings: LOOKBACK_READINGS["came-back"],
       });
     }
@@ -123,7 +126,7 @@ export function lookBack(all: HistoryRow[], stretch: Quarter): LookBackLine[] {
     const now = inStretch.length === 0 ? "none" : `only ${inStretch.length}`;
     left.push({
       id: `left:${artist}`, kind: "left", artist,
-      pattern: `${artist} left: ${before} plays in the six months before, ${now} in ${label}.`,
+      pattern: `${artist} dropped off: ${before} plays in the six months before, ${now} ${label}.`,
       plays: playsOf(byArtist.get(artist)!.filter((r) => inQ(r, s - 2, s))),
       readings: LOOKBACK_READINGS.left,
     });

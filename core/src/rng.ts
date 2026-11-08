@@ -10,8 +10,8 @@ export function seeded(seed: number): () => number {
   };
 }
 
-/** "in about 3 sets in 100", rounded to a whole number out of 100; under 1 reads "in fewer than 1 set in 100". */
+/** "about 3 in 100", rounded to a whole number out of 100; under 1 reads "fewer than 1 in 100". */
 export function inHundred(p: number): string {
   const n = Math.round(p * 100);
-  return n < 1 ? "in fewer than 1 set in 100" : `in about ${n} ${n === 1 ? "set" : "sets"} in 100`;
+  return n < 1 ? "fewer than 1 in 100" : `about ${n} in 100`;
 }

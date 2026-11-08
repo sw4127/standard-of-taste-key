@@ -11,7 +11,7 @@ export function PrivacyLine() {
 export function EraseEverything() {
   const [asking, setAsking] = useState(false);
   const [erased, setErased] = useState(false);
-  if (erased) return <p className="meta" role="status">Everything this browser kept for The Key is erased.</p>;
+  if (erased) return <p className="meta" role="status">Everything The Key saved in this browser has been erased.</p>;
   if (!asking) {
     return (
       <button type="button" className="act" onClick={() => setAsking(true)}>
@@ -21,7 +21,7 @@ export function EraseEverything() {
   }
   return (
     <div className="stack" role="group" aria-label="Erase everything">
-      <p className="record">This removes every song, answer, kept reading and word of yours saved in this browser. It cannot be undone.</p>
+      <p className="record">This erases all your songs, answers, kept readings and words saved in this browser. You can't undo it.</p>
       <div className="row">
         <button
           type="button"
@@ -35,7 +35,7 @@ export function EraseEverything() {
           Erase everything
         </button>
         <button type="button" className="act" onClick={() => setAsking(false)}>
-          Keep it
+          Don't erase
         </button>
       </div>
     </div>

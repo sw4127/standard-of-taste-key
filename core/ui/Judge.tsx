@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CHECK_A, isCheckA, mix, SWAP, swapResult, tallyCheckA, type CheckA, type Swap } from "../src/judge";
 import { defaultStretch, lookBack } from "../src/lookback";
 import { linesAcross } from "../src/patterns";
+import { theirName } from "../src/firstwords";
 import { judgeSource, type JudgeSource } from "./judge-source";
 import { lookBackQuestion } from "./LookBack";
 import { Go } from "./nav";
@@ -27,7 +28,7 @@ function linesOf(st: State, source: JudgeSource, person: string): Line[] {
   return rows && q ? lookBack(rows, q).map((l) => ({ id: lookBackQuestion(q, l), pattern: l.pattern })) : [];
 }
 
-const nameOf = (st: State, p: string) => (p === ME ? "you" : st.people.find((x) => x.person_id === p)?.label ?? "someone");
+const nameOf = (st: State, p: string) => (p === ME ? "you" : theirName(st.people.find((x) => x.person_id === p)?.label ?? "someone"));
 
 function LineToJudge<T extends string>({ line, options, value, onPick }: { line: Line; options: readonly T[]; value?: string; onPick: (v: T) => void }) {
   return (
@@ -119,19 +120,19 @@ export function Judge() {
           The swap test
         </button>
         <button type="button" className="act act-button" aria-pressed={shown === "check-a"} onClick={() => setTab("check-a")}>
-          Check A
+          Check your lines
         </button>
       </div>
-      {second && <p className="meta">Do the swap test before check A: check A shows whose lines are whose.</p>}
-      {src === "look-back" && <p className="meta">Look-back lines here use each file&#39;s most recent full quarter.</p>}
+      {second && <p className="meta">Do the swap test first. Checking your lines shows whose lines are whose.</p>}
+      {src === "look-back" && <p className="meta">Look-back lines here use the most recent full three months (one calendar quarter) in each file.</p>}
 
       {shown === "check-a" && (
         <>
-          <p className="label">Check A: one answer for each line, by the person it is about</p>
+          <p className="label">Check your lines: each line gets one answer, from the person it&#39;s about</p>
           <PersonPicker label="Whose lines" people={withLines} value={checkOwner} onPick={setAPerson} st={st} />
           {mine.length === 0 ? (
             <p className="record">
-              No lines yet. {src === "named songs" ? <Go to="songs">Name a few songs</Go> : <Go to="look-back">Open the look back</Go>}
+              No lines yet. {src === "named songs" ? <Go to="songs">Name a few songs</Go> : <Go to="look-back">Look back over your plays</Go>}
             </p>
           ) : (
             <ul className="plain stack">
@@ -163,7 +164,7 @@ export function Judge() {
 
       {shown === "swap" && (
         <>
-          <p className="label">The swap test: lines from two people, mixed</p>
+          <p className="label">The swap test: lines from two people, mixed. Can you spot yours?</p>
           {!first || !second ? (
             <p className="record">
               {src === "named songs"
@@ -174,7 +175,7 @@ export function Judge() {
             <>
               <PersonPicker label="Mixed with" people={withLines.filter((p) => p !== first)} value={second} onPick={setOtherId} st={st} />
               <PersonPicker label="Who is answering?" people={[first, second]} value={judge} onPick={setJudgeId} st={st} />
-              <p className="record">Whose each line is stays hidden. For each line: is it yours?</p>
+              <p className="record">You won&#39;t see whose line is whose. For each one: is it yours?</p>
               <ul className="plain stack">
                 {mixed.map((m) => (
                   <LineToJudge
@@ -190,10 +191,10 @@ export function Judge() {
                 <div className="card stack">
                   <p className="label">The swap test, answered by {nameOf(st, judge)}</p>
                   <p className="record">
-                    Lines from {whose(judge)} {what} marked Mine: {result.own.mine} of {result.own.of}. It passes when at least half are.
+                    Lines from {whose(judge)} {what} marked Mine: {result.own.mine} of {result.own.of}. This part passes when at least half are.
                   </p>
                   <p className="record">
-                    Lines from {whose(otherOfJudge)} {what} marked Mine: {result.other.mine} of {result.other.of}. It passes when one or none are.
+                    Lines from {whose(otherOfJudge)} {what} marked Mine: {result.other.mine} of {result.other.of}. This part passes when no more than one is.
                   </p>
                   <p className="record">{result.passes ? "The swap test passes." : "The swap test does not pass."}</p>
                 </div>

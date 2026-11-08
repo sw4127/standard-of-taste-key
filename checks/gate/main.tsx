@@ -116,7 +116,7 @@ function Gate() {
           <section className="card stack">
             <p className="label">2 · Mark every match</p>
             <p className="record">
-              For each match, open the recording on MusicBrainz and compare it with the video. Check the song, then the artist, then the version; the first that is wrong is the mark. If nothing is shown wrong but something can&#39;t be shown right, mark {"“"}Can&#39;t prove all three{"”"}. A doubtful release date is noted separately and never counted.
+              For each match, open the recording on MusicBrainz and compare it with the video. Check the song, then the artist, then the version, and mark the first one that is wrong. If nothing is wrong but you can&#39;t confirm all three, mark {"“"}Can&#39;t prove all three{"”"}. A doubtful release date is noted separately and never counted.
             </p>
             <p className="record" role="status">
               <strong>{v.state === "pass" ? "Passes" : v.state === "fail" ? "Fails" : v.state === "incomplete" ? "Incomplete" : "Not yet decided"}.</strong> {v.reason}
@@ -126,7 +126,7 @@ function Gate() {
             </p>
             {v.errors > 0 && running === null && (
               <button type="button" className="act" onClick={rerunFailed}>
-                Run the {v.errors} titles that did not run
+                Retry the {v.errors} titles that failed
               </button>
             )}
             <button type="button" className="act" onClick={download}>
@@ -166,7 +166,7 @@ function Gate() {
                 ) : r.result.state === "waiting" ? (
                   <p className="meta">{running === null ? "Not run yet." : "Waiting…"}</p>
                 ) : (
-                  <p className="meta">Not run: MusicBrainz did not answer.</p>
+                  <p className="meta">Not run: couldn&#39;t reach MusicBrainz.</p>
                 )}
               </li>
             ))}

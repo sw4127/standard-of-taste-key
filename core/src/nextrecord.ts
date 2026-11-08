@@ -12,6 +12,7 @@ import type { NextRow, PlayRow, SongFacts } from "./model";
 import { getJson, type Clock, type FetchFn, type Gate } from "./sources/http";
 import { MB, mbGate } from "./sources/musicbrainz";
 import { sessionStart } from "./firstwords";
+import { num } from "./patterns";
 
 export type ReasonKind = NextRow["reasons"][number]["kind"];
 export const REASON_ORDER: ReasonKind[] = ["uploader", "trusted_judge", "artist_new", "shared_person"];
@@ -36,7 +37,7 @@ export function uploaderReason(plays: PlayRow[], current: PlayRow): NextRow["rea
   if (songs.length < UPLOADER_MIN_FINISHED) return null;
   return {
     kind: "uploader",
-    text: `${current.uploader_name || "This uploader"} gave you ${songs.length} songs you played to the end.`,
+    text: `You've played ${num(songs.length)} songs from ${current.uploader_name || "this uploader"} all the way through.`,
     evidence: done.map((p) => `${p.started_at.slice(0, 10)} · ${p.song_title ?? p.page_title}`),
   };
 }

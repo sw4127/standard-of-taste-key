@@ -19,7 +19,7 @@ describe("reasons", () => {
   it("the uploader reason counts songs from that uploader played to the end, from D1", () => {
     const now = play(SONG, "2026-11-08T21:00:00", { uploader_id: "77", uploader_name: "Example Uploader" });
     const plays = [play(OTHER, "2026-11-01T10:00:00", { uploader_id: "77" }), play(SAME_ARTIST, "2026-11-02T10:00:00", { uploader_id: "77" }), play(SONG, "2026-11-03T10:00:00", { uploader_id: "77", reached_end: "no" }), now];
-    expect(uploaderReason(plays, now)?.text).toBe("Example Uploader gave you 3 songs you played to the end.");
+    expect(uploaderReason(plays, now)?.text).toBe("You've played three songs from Example Uploader all the way through.");
     expect(uploaderReason([now], now)).toBeNull();
   });
   it("finished songs by an artist are distinct recordings played to the end", () => {

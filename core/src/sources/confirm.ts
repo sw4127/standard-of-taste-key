@@ -19,7 +19,7 @@ export interface Deps {
 
 export type Confirmed =
   | { facts: SongFacts; matched_by: "rule" | "my pick" }
-  | { error: "MusicBrainz did not answer" };
+  | { error: "Couldn't reach MusicBrainz" };
 
 export async function confirmSong(c: Candidate, typed: string, d: Deps): Promise<Confirmed> {
   const mb = { fetchFn: d.fetchFn, gate: d.mbGate, clock: d.clock, cache: d.cache };
@@ -43,7 +43,7 @@ export async function confirmSong(c: Candidate, typed: string, d: Deps): Promise
   try {
     detail = await recordingDetail(chosen.id, mb);
   } catch {
-    return { error: "MusicBrainz did not answer" };
+    return { error: "Couldn't reach MusicBrainz" };
   }
 
   const known = (x: string | null | undefined) => (x && !x.startsWith("9999") ? x : null);

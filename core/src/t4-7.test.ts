@@ -17,7 +17,7 @@ describe("the friend line", () => {
       ...friendPlays(8, "Juniper Varga", "Second Album", () => "Low Bell", "2026-02"),
     ];
     const l = friendLine({ "person-f": rows }, [FRIEND], "Juniper Varga")!;
-    expect(l.under).toBe("Where to start: Harbour Lights, the record they played most, in April to June 2025.");
+    expect(l.under).toBe("Where to start: Harbour Lights, the record they played most, mostly between April and June 2025.");
   });
   it("lists the three most played songs, never one with fewer than five plays", () => {
     const rows = [
@@ -26,7 +26,7 @@ describe("the friend line", () => {
       ...friendPlays(4, "Juniper Varga", "A", () => "Three"),
     ];
     const l = friendLine({ "person-f": rows }, [FRIEND], "Juniper Varga")!;
-    expect(l.proof.at(-1)!.text).toBe("Their most played songs by this artist: One (12), Two (6)");
+    expect(l.proof.at(-1)!.text).toBe("Their most-played songs by this artist: One (12), Two (6)");
   });
   it("matches the artist across traditional and simplified spellings, and needs a consent note", () => {
     const rows = friendPlays(20, "周杰倫", "葉惠美", () => "晴天");

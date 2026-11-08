@@ -40,7 +40,7 @@ export function PanelHome({ playing = false }: { playing?: boolean }) {
         }}
       >
         <p className="voice">Have a Spotify file? Drop it here.</p>
-        <Go to="look-back">Open the look back</Go>
+        <Go to="look-back">Look back over your plays</Go>
       </article>
       {noteAvailable(st.choices, st.words) && (
         <p>

@@ -73,7 +73,7 @@ export function TasteNote({ person = "me" }: { person?: string }) {
                   <p className="meta">
                     {s.date} ·{" "}
                     <button type="button" className="act" aria-expanded={receipt === id} onClick={() => setReceipt(receipt === id ? null : id)}>
-                      {receipt === id ? "Hide the receipt" : "See the receipt"}
+                      {receipt === id ? "Hide the evidence" : "See the evidence"}
                     </button>
                   </p>
                   {receipt === id && (
@@ -108,7 +108,7 @@ export function TasteNote({ person = "me" }: { person?: string }) {
             <>
               <hr className="rule" />
               <p className="label">Your words, kept but left off the note</p>
-              <p className="meta">The note never carries words about health or harm. They stay here unchanged, and nowhere else.</p>
+              <p className="meta">These words are kept off the front of the note. They stay here, unchanged, and nowhere else.</p>
               <ul className="plain stack">
                 {keptAside.map((w) => (
                   <li key={JSON.stringify(w.from)} className="stack">

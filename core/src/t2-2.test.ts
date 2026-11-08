@@ -20,13 +20,13 @@ describe("(a) a line from the person's own record", () => {
     const plays = [play(SONG, "2026-11-01T01:10:00"), play(SONG, "2026-11-01T22:00:00"), play(SONG, "2026-11-03T02:30:00")];
     const l = now(plays, play(SONG, "2026-11-05T20:00:00"));
     expect(l.kind).toBe("own-recording");
-    expect(l.text).toBe("You've played this on three separate days since you installed, two of them after midnight.");
+    expect(l.text).toBe("You've played this on three separate days since you installed The Key, two of them after midnight.");
     expect(l.readings?.every((r) => r.ask.endsWith("?"))).toBe(true);
     expect(l.proof).toHaveLength(4);
   });
   it("one late day is not named: the clause needs two or more", () => {
     const plays = [play(SONG, "2026-11-01T01:10:00"), play(SONG, "2026-11-02T22:00:00")];
-    expect(now(plays, play(SONG, "2026-11-03T20:00:00")).text).toBe("You've played this on three separate days since you installed.");
+    expect(now(plays, play(SONG, "2026-11-03T20:00:00")).text).toBe("You've played this on three separate days since you installed The Key.");
   });
   it("two days are not enough; several plays on one day count once", () => {
     const plays = [play(SONG, "2026-11-01T10:00:00"), play(SONG, "2026-11-01T11:00:00"), play(SONG, "2026-11-01T12:00:00")];
@@ -36,7 +36,7 @@ describe("(a) a line from the person's own record", () => {
     const plays = [play(SAME_ARTIST, "2026-11-01T10:00:00"), play(SAME_ARTIST, "2026-11-02T10:00:00")];
     const l = ownRecordLine([...plays, play(SONG, "2026-11-03T10:00:00")], FACTS, SONG)!;
     expect(l.kind).toBe("own-artist");
-    expect(l.text).toBe("You've played Juniper Varga on three separate days since you installed.");
+    expect(l.text).toBe("You've played Juniper Varga on three separate days since you installed The Key.");
   });
   it("plays the rule could not match, or marked not a song, never count", () => {
     const plays = [play(SONG, "2026-11-01T10:00:00", { match_state: "unsure" }), play(SONG, "2026-11-02T10:00:00", { match_state: "not a song" })];

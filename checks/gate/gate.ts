@@ -100,7 +100,7 @@ export function verdict(rows: GateRow[]): Verdict {
   };
   if (waiting > 0) return { ...base, state: "incomplete", reason: `${waiting} ${waiting === 1 ? "title" : "titles"} still to run.` };
   if (rows.length !== GATE_SIZE || errors > 0) {
-    return { ...base, state: "incomplete", reason: errors ? `${errors} ${errors === 1 ? "title" : "titles"} could not be run (MusicBrainz did not answer); run ${errors === 1 ? "it" : "them"} again.` : `The gate needs ${GATE_SIZE} titles.` };
+    return { ...base, state: "incomplete", reason: errors ? `${errors} ${errors === 1 ? "title" : "titles"} could not be run (couldn't reach MusicBrainz); retry ${errors === 1 ? "it" : "them"}.` : `The gate needs ${GATE_SIZE} titles.` };
   }
   if (marked < matches.length) {
     const wrongSoFar = matches.filter((r) => r.mark && r.mark !== RIGHT).length;
