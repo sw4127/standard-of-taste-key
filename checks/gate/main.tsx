@@ -8,7 +8,7 @@ import "../../core/design/cardstock.css";
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { matchTitle } from "../../core/src/match/v6";
-import { GATE_SIZE, listProblems, MARKS, sheetMarkdown, titlesFrom, verdict, type GateRow, type Mark } from "./gate";
+import { carryMarks, GATE_SIZE, gateTitles, listProblems, MARKS, sheetMarkdown, titlesFrom, verdict, type GateRow, type Mark } from "./gate";
 
 const KEY = "the-key-launch-gate";
 interface Saved {
@@ -36,18 +36,20 @@ function Gate() {
     }
   }, [s]);
 
-  const titles = titlesFrom(s.pasted);
-  const problems = listProblems(s.uploader, titles);
+  const read = titlesFrom(s.pasted);
+  const titles = gateTitles(read);
+  const problems = listProblems(s.uploader, read);
   const v = s.rows.length ? verdict(s.rows) : null;
 
   const run = async () => {
+    const before = s.rows;
     const rows: GateRow[] = titles.map((title, i) => ({ i, title, result: { state: "waiting" } }));
     setS((x) => ({ ...x, rows }));
     for (let i = 0; i < rows.length; i++) {
       setRunning(i);
       try {
         const r = await matchTitle(rows[i]!.title, { fetchFn: (u) => fetch(u) });
-        rows[i] = { ...rows[i]!, result: r.state === "certain" ? { state: "certain", candidate: r.candidate } : { state: "silent", reason: r.reason } };
+        rows[i] = carryMarks(before, { ...rows[i]!, result: r.state === "certain" ? { state: "certain", candidate: r.candidate } : { state: "silent", reason: r.reason } });
       } catch {
         rows[i] = { ...rows[i]!, result: { state: "error" } };
       }
@@ -89,7 +91,7 @@ function Gate() {
       <section className="card stack">
         <p className="label">1 · The list</p>
         <p className="record">
-          Open a Bilibili uploader&#39;s list page (not {"“"}百万豪装录音棚大声听{"”"}), copy 50 video titles, and paste them here, one per line. Durations, play counts and dates copied with them are left out.
+          Open a Bilibili uploader&#39;s list page, copy at least 50 video titles, and paste them here. Durations, play counts and dates copied with them are left out, and the first 50 titles run.
         </p>
         <label className="label" htmlFor="uploader">Uploader</label>
         <input id="uploader" className="field" value={s.uploader} onChange={(e) => setS({ ...s, uploader: e.target.value })} />
@@ -97,7 +99,19 @@ function Gate() {
         <input id="list" className="field" value={s.listNote} onChange={(e) => setS({ ...s, listNote: e.target.value })} />
         <label className="label" htmlFor="titles">Titles</label>
         <textarea id="titles" className="field words-box" rows={12} value={s.pasted} onChange={(e) => setS({ ...s, pasted: e.target.value })} />
-        <p className="meta">{titles.length} of {GATE_SIZE} titles.</p>
+        <p className="meta">
+          {read.length > GATE_SIZE ? `Read ${read.length} titles; the first ${GATE_SIZE} will run.` : `${titles.length} of ${GATE_SIZE} titles.`}
+        </p>
+        {read.length > 0 && (
+          <details>
+            <summary className="act">See the titles the sheet read</summary>
+            <ol className="stack" style={{ paddingLeft: 20 }}>
+              {titles.map((t) => (
+                <li key={t} className="record">{t}</li>
+              ))}
+            </ol>
+          </details>
+        )}
         {problems.length > 0 && (
           <ul className="plain">
             {problems.map((p) => (
@@ -126,7 +140,7 @@ function Gate() {
             </p>
             {v.errors > 0 && running === null && (
               <button type="button" className="act" onClick={rerunFailed}>
-                Retry the {v.errors} titles that failed
+                {v.errors === 1 ? "Retry the 1 title that couldn't reach MusicBrainz" : `Retry the ${v.errors} titles that couldn't reach MusicBrainz`}
               </button>
             )}
             <button type="button" className="act" onClick={download}>

@@ -1,7 +1,7 @@
 /** T8.3 The launch gate (FR-T8.3): a fresh list of 50, from another uploader; 0 wrong or unprovable matches to pass. */
 import { describe, expect, it } from "vitest";
 import { MATCH_FIXTURES } from "../core/src/match/fixtures";
-import { GATE_SIZE, listProblems, MARKS, RIGHT, sheetMarkdown, titlesFrom, TUNING_UPLOADER, verdict, type GateRow, type Mark } from "./gate/gate";
+import { carryMarks, GATE_SIZE, gateTitles, listProblems, MARKS, RIGHT, sheetMarkdown, titlesFrom, TUNING_UPLOADER, verdict, type GateRow, type Mark } from "./gate/gate";
 
 const fresh = (n: number) => Array.from({ length: n }, (_, i) => `Example Singer ${i}《Example Song ${i}》`);
 const match = (i: number, mark?: Mark, dateDoubtful = false): GateRow => ({
@@ -27,9 +27,19 @@ describe("the list", () => {
   it("refuses every uploader the rule has already met", () => {
     for (const u of ["JLRS日落fm", "JLRS-LeoFM", "JLRS-jayfm", "伤感咩吖"]) expect(listProblems(u, fresh(50)).join()).toMatch(/have not tuned/);
   });
-  it("must be exactly 50 titles, from a named uploader other than the one that tuned v6, none seen before", () => {
+  it("runs the first 50 titles of a longer paste, and keeps marks already given when a list runs again", () => {
+    expect(listProblems("Example Uploader", fresh(63))).toEqual([]);
+    expect(gateTitles(fresh(63))).toEqual(fresh(50));
+    const old = { ...match(3, RIGHT, true), title: "Singer《Song》" };
+    const again = { ...match(3), i: 9, title: "Singer《Song》" };
+    expect(carryMarks([old], again)).toMatchObject({ i: 9, mark: RIGHT, dateDoubtful: true });
+    // A different recording for the same title starts unmarked.
+    const other: GateRow = { ...again, result: { state: "certain", candidate: { recording_id: "another", title: "Song", artist_credit: "Singer" } } };
+    expect(carryMarks([old], other).mark).toBeUndefined();
+  });
+  it("must be 50 titles, from a named uploader other than the one that tuned v6, none seen before", () => {
     expect(listProblems("Example Uploader", fresh(50))).toEqual([]);
-    expect(listProblems("Example Uploader", fresh(49))[0]).toMatch(/exactly 50/);
+    expect(listProblems("Example Uploader", fresh(49))[0]).toMatch(/needs 50 titles; the sheet read 49/);
     expect(listProblems("", fresh(50))[0]).toMatch(/Name the uploader/);
     expect(listProblems(TUNING_UPLOADER, fresh(50)).join()).toMatch(/have not tuned/);
     expect(listProblems("JLRS-jayfm", fresh(50)).join()).toMatch(/have not tuned/);

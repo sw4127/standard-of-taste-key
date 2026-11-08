@@ -65,8 +65,23 @@ export function titlesFrom(pasted: string): string[] {
 
 const SEEN = new Set([...MATCH_FIXTURES.map((f) => f.title), ...GATE_TUNING_TITLES].map(normalise));
 
-/** Why this list cannot be the gate's list, or [] when it can. */
-export function listProblems(uploader: string, titles: string[]): string[] {
+/** The titles the gate runs: the first 50 read from the paste. A longer paste is fine; the rest wait. */
+export const gateTitles = (read: string[]): string[] => read.slice(0, GATE_SIZE);
+
+/**
+ * When a list is run again, a match that lands on the same recording for the same title keeps the
+ * mark Bob already gave it, so he marks only what is new.
+ */
+export function carryMarks(before: GateRow[], row: GateRow): GateRow {
+  if (row.result.state !== "certain") return row;
+  const id = row.result.candidate.recording_id;
+  const old = before.find((b) => b.title === row.title && b.result.state === "certain" && b.result.candidate.recording_id === id);
+  return old ? { ...row, mark: old.mark, dateDoubtful: old.dateDoubtful } : row;
+}
+
+/** Why the first 50 titles read cannot be the gate's list, or [] when they can. */
+export function listProblems(uploader: string, read: string[]): string[] {
+  const titles = gateTitles(read);
   const out: string[] = [];
   if (!uploader.trim()) out.push("Name the uploader whose list the titles come from.");
   const tuned = TUNING_UPLOADERS.find((u) => normalise(uploader).includes(normalise(u)) || titles.some((t) => t.includes(u)));
@@ -75,7 +90,7 @@ export function listProblems(uploader: string, titles: string[]): string[] {
   }
   const seen = titles.filter((t) => SEEN.has(normalise(t)));
   if (seen.length) out.push(`${seen.length} of these titles were used to write or tune the rule: ${seen.slice(0, 3).join(" · ")}${seen.length > 3 ? " …" : ""}`);
-  if (titles.length !== GATE_SIZE) out.push(`The gate needs exactly ${GATE_SIZE} titles; this list has ${titles.length}.`);
+  if (titles.length < GATE_SIZE) out.push(`The gate needs ${GATE_SIZE} titles; the sheet read ${titles.length}. Paste a few more; any beyond ${GATE_SIZE} are left out.`);
   return out;
 }
 
