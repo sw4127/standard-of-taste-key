@@ -7,9 +7,25 @@ import { normalise, type MbRecording } from "./match/studio";
 import { decide, searchesFor, type MatchResult } from "./match/v6";
 
 describe("parsing a title", () => {
-  it("reads artist《title（note）》tagline: the note removed, the tagline ignored", () => {
+  it("reads artist《title（note）》tagline: the note removed; the artist before 《 first, any name after 》 after it (v6.2)", () => {
     const p = parseTitle("容祖儿《连续剧（电视剧《On Call 36小时》主题曲）》百万豪装录音棚大声听");
-    expect(p.queries).toEqual([{ track: "连续剧", artists: ["容祖儿"] }]);
+    expect(p.queries).toEqual([{ track: "连续剧", artists: ["容祖儿", "百万豪装录音棚大声听"] }]);
+  });
+  it("v6.2: an artist named after 》 is found ('《Pacific Rim》环太平洋主题曲Ramin Djawadi')", () => {
+    const p = parseTitle("【环太平洋上的太空电梯】百万级录音棚听《Pacific Rim》环太平洋主题曲Ramin Djawadi【Hi-Res】");
+    expect(p.queries[0]!.track).toBe("Pacific Rim");
+    expect(p.queries[0]!.artists).toContain("Ramin Djawadi");
+  });
+  it("v6.2: square-bracket tags go, and the part after a ｜ divider names the song", () => {
+    expect(parseTitle("[全专中字] Lost Weekend - Phoebe Bridgers").queries[0]).toEqual({ track: "Lost Weekend", artists: ["Phoebe Bridgers"] });
+    expect(parseTitle("[杜比分轨/人声细节] LISA新专里细节这么多？｜PRESS PLAY - LISA").queries[0]).toEqual({ track: "PRESS PLAY", artists: ["LISA"] });
+    expect(parseTitle("[中字MV] 萨瓦迪卡｜SaWaDiKa - LISA [4K]").queries[0]).toEqual({ track: "SaWaDiKa", artists: ["LISA"] });
+  });
+  it("v6.2: a divider inside a 「…」 label is left alone", () => {
+    expect(parseTitle("「埃米纳姆｜最新催泪MV」Eminem - Somebody Save Me (feat. Jelly Roll) [Official Music Video]").queries[0]).toEqual({ track: "Eminem", artists: ["Somebody Save Me"] });
+  });
+  it("v6.2: names in brackets after an artist are more names", () => {
+    expect(parseTitle("[无损] 听完给跪下了｜COME CLOSER - TOMORA (AURORA, Tom Rowlands)").queries[0]!.artists).toEqual(["TOMORA", "AURORA", "Tom Rowlands"]);
   });
   it("removes notes repeatedly, in either bracket, traditional characters included", () => {
     expect(stripNotes("大梦归（电视剧《兰香如故》主题曲）")).toBe("大梦归");
@@ -140,6 +156,8 @@ const sameSong = (r: MbRecording, a: { song: string; credit: string }) =>
  * here fails the test until it is checked.
  */
 export const NEW_MATCHES_CHECKED: Record<string, string> = {
+  "「NF｜全新EP」FEAR - NF (Nate Feuerstein)":
+    "Hand check 2026-11-08 (v6.2): right song, artist and version. FEAR · NF, the title track of the EP FEAR (official EP, 2025-11-14); the video names NF's new EP FEAR. v5 was silent here because it read \"NF (Nate Feuerstein)\" as one name.",
   "蔡琴《你不要那样看着我的眼睛》百万豪装录音棚大声听":
     "Hand check 2026-11-08: right song, right artist (你不要那樣看著我的眼睛 · 蔡琴). Version not provable: the only recording MusicBrainz returns is on her 2002 album of that name; she first recorded the song decades earlier. The original v6 run was silent here.",
   "刘欢《千万次的问（《北京人在纽约》片头曲）》百万豪装录音棚大声听":

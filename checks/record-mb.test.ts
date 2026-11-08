@@ -4,7 +4,7 @@
  * rule's test replays them offline. Run when the rule's searches change:
  *   RECORD=1 npx vitest run checks/record-mb.test.ts
  */
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { it } from "vitest";
 import { MATCH_FIXTURES } from "../core/src/match/fixtures";
@@ -32,11 +32,24 @@ function trim(r: MbRecording, tracks: string[]): MbRecording {
 
 it.skipIf(!process.env.RECORD)("record MusicBrainz replies for the match fixtures", async () => {
   const gate = new Gate(1300);
-  const out: Record<string, MbRecording[]> = {};
+  // Keep the replies already recorded; fetch only searches the rule now sends that are missing.
+  const file = join(__dirname, "..", "core", "src", "match", "fixtures-mb.json");
+  const out: Record<string, MbRecording[]> = existsSync(file) && !process.env.FRESH ? JSON.parse(readFileSync(file, "utf8")) : {};
+  let skipped = 0;
   const get = async (q: string, tracks: string[]) => {
     if (out[q]) return out[q]!;
-    const body = (await getJson(`${MB}/recording?query=${encodeURIComponent(q)}&limit=50&fmt=json`, gate, fetchFn)) as { recordings?: MbRecording[] };
-    return (out[q] = (body.recordings ?? []).map((r) => trim(r, tracks)));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const body = (await getJson(`${MB}/recording?query=${encodeURIComponent(q)}&limit=50&fmt=json`, gate, fetchFn)) as { recordings?: MbRecording[] };
+        out[q] = (body.recordings ?? []).map((r) => trim(r, tracks));
+        writeFileSync(file, JSON.stringify(out)); // saved as it goes: a rerun continues from here
+        return out[q]!;
+      } catch {
+        await new Promise((r) => setTimeout(r, 15_000)); // MusicBrainz busy: wait, then try again
+      }
+    }
+    skipped++;
+    return [];
   };
   let n = 0;
   for (const f of MATCH_FIXTURES) {
@@ -48,6 +61,6 @@ it.skipIf(!process.env.RECORD)("record MusicBrainz replies for the match fixture
     if (!found) for (const q of trackOnly) await get(q, tracks);
     if (++n % 20 === 0) console.log(`${n} of ${MATCH_FIXTURES.length}`);
   }
-  writeFileSync(join(__dirname, "..", "core", "src", "match", "fixtures-mb.json"), JSON.stringify(out));
-  console.log(`${Object.keys(out).length} searches recorded`);
+  writeFileSync(file, JSON.stringify(out));
+  console.log(`${Object.keys(out).length} searches recorded; ${skipped} still missing (run again)`);
 }, 3_600_000);

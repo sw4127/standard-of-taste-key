@@ -1,5 +1,7 @@
 /**
  * FR-CORE-1, part 1: parse a Bilibili video title into the track and the artists it names.
+ * v6.2 (2026-11-08, after gate run 2): square-bracket tags are removed; "description｜Song - Artist"
+ * reads the part after the divider; an artist named after 》 is also looked for in the credit.
  *
  * - Every 【…】 is removed.
  * - If the title holds 《: the artist text is everything before the first 《; the track is the outer
@@ -58,15 +60,15 @@ export function stripNotes(track: string): string {
 }
 
 /** The outer 《…》 and the text before it, nested 《》 counted. */
-function outerBook(t: string): { before: string; inner: string } | null {
+function outerBook(t: string): { before: string; inner: string; after: string } | null {
   const first = t.indexOf("《");
   if (first < 0) return null;
   let depth = 0;
   for (let i = first; i < t.length; i++) {
     if (t[i] === "《") depth++;
-    else if (t[i] === "》" && --depth === 0) return { before: t.slice(0, first), inner: t.slice(first + 1, i) };
+    else if (t[i] === "》" && --depth === 0) return { before: t.slice(0, first), inner: t.slice(first + 1, i), after: t.slice(i + 1) };
   }
-  return { before: t.slice(0, first), inner: t.slice(first + 1) };
+  return { before: t.slice(0, first), inner: t.slice(first + 1), after: "" };
 }
 
 const CJK = /[　-〿㐀-䶿一-鿿＀-￯·]+/g;
@@ -78,6 +80,8 @@ const isCjk = (ch: string) => /[㐀-䶿一-鿿]/.test(ch);
 export function artistParts(text: string): string[] {
   const names = text
     .replace(FEAT, "")
+    // v6.2: a bracket around a name lists more names: "TOMORA (AURORA, Tom Rowlands)".
+    .replace(/[()（）]/g, ",")
     .split(/\s*(?:&|＆|、|,|，|\/|／|\sx\s|\sfeat\.?\s|\sft\.?\s)\s*/i)
     .map((s) => s.trim().replace(/^[\s\-|]+|[\s\-|]+$/g, ""))
     .filter(Boolean);
@@ -96,12 +100,18 @@ export function artistParts(text: string): string[] {
 
 export function parseTitle(title: string): Parsed {
   const version = hasVersionWord(title);
-  let t = title.replace(/【[^】]*】/g, " ").replace(/\[[^\]]*Video[^\]]*\]/gi, " ").replace(/\s+/g, " ").trim();
+  // v6.2: square-bracket tags ([中字], [4K], ［MV］) go the same way as 【…】.
+  let t = title.replace(/【[^】]*】/g, " ").replace(/\[[^\]]*\]/g, " ").replace(/［[^］]*］/g, " ").replace(/\s+/g, " ").trim();
   const book = outerBook(t);
   if (book) {
     const track = stripNotes(book.inner.replace(FEAT, "")).trim();
-    return { title, version, queries: track ? [{ track, artists: artistParts(book.before) }] : [] };
+    // v6.2: an artist named after the closing 》 ("《Pacific Rim》环太平洋主题曲Ramin Djawadi") is also
+    // looked for in the credit, after the ones before 《; it never comes first, so a match still needs
+    // the credit to hold a name the title gives.
+    const artists = [...new Set([...artistParts(book.before), ...artistParts(book.after)])];
+    return { title, version, queries: track ? [{ track, artists }] : [] };
   }
+
 
   // Stage 6 rules (parse_v2), for titles with no 《》.
   let hints: string[] = [];
@@ -115,6 +125,10 @@ export function parseTitle(title: string): Parsed {
       t = inner!;
     }
   }
+  // v6.2: "一句中文描述｜Song - Artist": the part after the last divider names the song. Read after
+  // the 「…」 label, so a divider inside the label ("「埃米纳姆｜最新催泪MV」Eminem - …") is left alone.
+  const divided = t.split(/｜|\s\|\s/);
+  if (divided.length > 1 && /\s[-–]\s/.test(divided.at(-1)!)) t = divided.at(-1)!.trim();
   const t2 = latinParts(t.replace(/，/g, ",").replace(/／/g, "/"));
   const clean = (s: string) => (version ? s : s.replace(/\b(remix|original version|version|live|acoustic|demo)\b/gi, "")).replace(FEAT, "").trim().replace(/^[\s()-]+|[\s()-]+$/g, "");
   const both = t2.split(/\s+[-–]\s+|\s[-–]|[-–]\s/);

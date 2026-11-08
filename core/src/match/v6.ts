@@ -14,7 +14,7 @@ import { MB, mbGate } from "../sources/musicbrainz";
 import { stripNotes, parseTitle, type Parsed } from "./parse";
 import { creditText, hasVersionWord, normalise, type MbRecording } from "./studio";
 
-export const RULE_VERSION = "v6.1";
+export const RULE_VERSION = "v6.2";
 
 /**
  * v6.1 (2026-11-08, after the first launch-gate run): a generic title names no song. "Main theme" by

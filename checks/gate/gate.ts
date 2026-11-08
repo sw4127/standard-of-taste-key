@@ -6,6 +6,7 @@
  * it does not put a key on the wrong recording. Coverage is reported, not gated.
  */
 import { MATCH_FIXTURES } from "../../core/src/match/fixtures";
+import { GATE_TUNING_TITLES } from "./tuning-titles";
 import { normalise } from "../../core/src/match/studio";
 import type { Candidate, Silence } from "../../core/src/match/v6";
 
@@ -57,7 +58,7 @@ export function titlesFrom(pasted: string): string[] {
   return out;
 }
 
-const SEEN = new Set(MATCH_FIXTURES.map((f) => normalise(f.title)));
+const SEEN = new Set([...MATCH_FIXTURES.map((f) => f.title), ...GATE_TUNING_TITLES].map(normalise));
 
 /** Why this list cannot be the gate's list, or [] when it can. */
 export function listProblems(uploader: string, titles: string[]): string[] {
