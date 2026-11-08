@@ -1,12 +1,13 @@
 "use client";
 /** The panel's empty state (moment map P-1; T1.1): three one-line offers, each one tap. No form. */
 import { noteAvailable } from "../src/note";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Go, NavContext } from "./nav";
-import { useStore } from "./store";
+import { hydrate, useStore } from "./store";
 
 export function PanelHome() {
   const st = useStore();
+  useEffect(() => void hydrate(), []);
   const nav = useContext(NavContext);
   const [over, setOver] = useState(false);
   return (

@@ -3,7 +3,8 @@ import "@sot/core/design/cardstock.css";
 import "./panel.css";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PrivacyLine } from "@sot/core/ui/Footer";
+import { EraseEverything, PrivacyLine } from "@sot/core/ui/Footer";
+import { Judge } from "@sot/core/ui/Judge";
 import { LookBack } from "@sot/core/ui/LookBack";
 import { NavContext, type View } from "@sot/core/ui/nav";
 import { PanelHome } from "@sot/core/ui/PanelHome";
@@ -17,6 +18,7 @@ const SCREENS: Record<View, () => React.ReactNode> = {
   songs: () => <Songs />,
   "look-back": () => <LookBack />,
   note: () => <TasteNote />,
+  judge: () => <Judge />,
 };
 
 function Panel() {
@@ -34,8 +36,9 @@ function Panel() {
           )}
         </header>
         <main className="panel-body">{SCREENS[view]()}</main>
-        <footer className="panel-foot">
+        <footer className="panel-foot stack">
           <PrivacyLine />
+          <EraseEverything />
         </footer>
       </div>
     </NavContext.Provider>

@@ -4,20 +4,28 @@
  * and their own words. Front: heading, the three most recent kept readings, the swatch row. Turn it
  * over for every kept reading and answer, with dates and receipts.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { passes } from "../src/checks";
 import { edgeColour, keyName } from "../src/design/key-colour";
 import { assembleNote, noteAvailable } from "../src/note";
 import { ExampleLabel, Go, SourceRef } from "./nav";
-import { songsOf, useStore } from "./store";
+import { hydrate, songsOf, useStore } from "./store";
 
 export function TasteNote({ person = "me" }: { person?: string }) {
   const st = useStore();
+  useEffect(() => void hydrate(), []);
   const [back, setBack] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
   const songs = songsOf(st, person);
   const measured = songs.filter((s) => s.facts.key && s.facts.key.strength >= 0.5);
   const note = assembleNote(st.choices, st.words, measured.map((s) => s.facts.key!), person);
   const example = songs.some((s) => s.facts.recording_id.startsWith("example-"));
+  // FR-T9.4: the person's words pass FR-CORE-2 before they are shown again on the note; words that
+  // do not are kept, unchanged, and shown only here on the back, labelled.
+  const own = note.own.filter((w) => passes(w.text, "words"));
+  const keptAside = note.own.filter((w) => !passes(w.text, "words"));
+
+  if (!st.ready) return <p className="meta" role="status">Reading what this browser keeps…</p>;
 
   if (!noteAvailable(st.choices, st.words, person)) {
     return (
@@ -78,12 +86,28 @@ export function TasteNote({ person = "me" }: { person?: string }) {
               );
             })}
           </ul>
-          {note.own.length > 0 && (
+          {own.length > 0 && (
             <>
               <hr className="rule" />
               <p className="label">In your words</p>
               <ul className="plain stack">
-                {note.own.map((w) => (
+                {own.map((w) => (
+                  <li key={JSON.stringify(w.from)} className="stack">
+                    <p className="meta">{w.pattern}</p>
+                    <p className="own">{w.text}</p>
+                    <p className="meta">{w.date}</p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {keptAside.length > 0 && (
+            <>
+              <hr className="rule" />
+              <p className="label">Your words, kept but left off the note</p>
+              <p className="meta">The note never carries words about health or harm. They stay here unchanged, and nowhere else.</p>
+              <ul className="plain stack">
+                {keptAside.map((w) => (
                   <li key={JSON.stringify(w.from)} className="stack">
                     <p className="meta">{w.pattern}</p>
                     <p className="own">{w.text}</p>

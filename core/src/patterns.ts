@@ -6,6 +6,7 @@
  * Thresholds are the PRD's. A line that only restates one answer is never built; no line rests on one
  * song. A release date the person marked wrong takes that song out of every date line.
  */
+import { breaches } from "./checks";
 import { keyName, type Key } from "./design/key-colour";
 import type { CreditRole, Part, Song, Source } from "./model";
 import { inHundred, seeded } from "./rng";
@@ -307,10 +308,29 @@ function sharedPersonLine(songs: Song[]): PatternLine | null {
 
 export const MIN_SONGS_FOR_LINES = 3;
 
+/** Every name a line can quote: titles, artist credits, credited people. */
+export const namesIn = (songs: Song[]) =>
+  songs.flatMap((s) => [s.facts.title, s.facts.artist_credit, s.facts.lead_artist, ...s.facts.people.map((p) => p.name)]);
+
+/** FR-CORE-2 at display time: why a filled line may not be shown, or [] when every sentence in it passes. */
+export function lineBreaches(l: PatternLine, names: readonly string[]): string[] {
+  return [
+    ...breaches(l.pattern, "key", names),
+    ...(l.gloss ? breaches(l.gloss, "fact", names) : []),
+    ...(l.chance ? breaches(l.chance, "fact", names) : []),
+    ...l.evidence.flatMap((e) => breaches(e.text, "fact", names)),
+    ...l.readings.flatMap((r) => [...breaches(r.ask, "offer", names), ...breaches(r.kept, "said", names)]),
+    ...breaches(l.question, "offer", names),
+  ];
+}
+
 export function linesAcross(songs: Song[], now: Date = new Date()): PatternLine[] {
   if (songs.length < MIN_SONGS_FOR_LINES) return [];
+  const names = namesIn(songs);
   return [keyLine(songs), tempoLine(songs), partLine(songs), releaseLine(songs), foundLaterLine(songs, now), sharedPersonLine(songs)]
     .filter((l): l is PatternLine => l !== null)
     // No pattern is built from a single song.
-    .filter((l) => new Set(l.entry_ids).size >= 2);
+    .filter((l) => new Set(l.entry_ids).size >= 2)
+    // A filled sentence that fails the register or carve-out check is not shown; the next line takes its place.
+    .filter((l) => lineBreaches(l, names).length === 0);
 }

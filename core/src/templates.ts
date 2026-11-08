@@ -28,7 +28,7 @@ export const WIKIPEDIA_KEY: Grounding = {
   citation: "Wikipedia, \"Key (music)\": a key's tonic is the pitch a piece is oriented around and almost always ends on",
   url: "https://en.wikipedia.org/wiki/Key_(music)",
 };
-/** To be checked against the page before Step 3 closes (build log, step 2). */
+/** Checked against the page on 2026-11-08: it lists who did what on a recording (producer, engineer, mixer…). */
 export const MUSICBRAINZ_ROLES: Grounding = {
   citation: "MusicBrainz, artist–recording relationship types (who did what on a recording)",
   url: "https://musicbrainz.org/relationships/artist-recording",

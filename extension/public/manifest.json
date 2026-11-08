@@ -25,5 +25,6 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["sidePanel"]
+  "permissions": ["sidePanel"],
+  "host_permissions": ["https://musicbrainz.org/*", "https://acousticbrainz.org/*", "https://www.wikidata.org/*"]
 }

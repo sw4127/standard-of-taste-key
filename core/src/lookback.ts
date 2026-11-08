@@ -6,6 +6,7 @@
  * - came back: absent for at least two quarters before the stretch, played on 3 or more days in it.
  * Each line has its plays behind a tap and one pair of readings, plus Neither.
  */
+import { breaches } from "./checks";
 import type { HistoryRow } from "./model";
 
 export const MIN_MS = 30_000;
@@ -128,6 +129,26 @@ export function lookBack(all: HistoryRow[], stretch: Quarter): LookBackLine[] {
     });
   }
 
-  const strongest = (ls: LookBackLine[]) => ls.sort((a, b) => b.plays.length - a.plays.length || a.artist.localeCompare(b.artist)).slice(0, PER_KIND);
+  // FR-CORE-2 at display time: an artist's name or a track title can carry any word; a line that
+  // fails is not shown, and the next strongest of its kind takes its place.
+  const shown = (l: LookBackLine) => lookBackBreaches(l).length === 0;
+  const strongest = (ls: LookBackLine[]) => {
+    const out: LookBackLine[] = [];
+    for (const l of ls.sort((a, b) => b.plays.length - a.plays.length || a.artist.localeCompare(b.artist))) {
+      if (out.length === PER_KIND) break;
+      if (shown(l)) out.push(l);
+    }
+    return out;
+  };
   return [...strongest(arrived), ...strongest(left), ...strongest(cameBack)];
+}
+
+/** Why a look-back line may not be shown, or [] when every sentence in it passes. */
+export function lookBackBreaches(l: LookBackLine): string[] {
+  const names = [l.artist, ...l.plays.map((p) => p.track)];
+  return [
+    ...breaches(l.pattern, "key", names),
+    ...l.plays.flatMap((p) => breaches(p.track, "fact", names)),
+    ...l.readings.flatMap((r) => [...breaches(r.ask, "offer"), ...breaches(r.kept, "said")]),
+  ];
 }

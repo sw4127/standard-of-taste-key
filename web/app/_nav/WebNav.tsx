@@ -8,6 +8,7 @@ const PATH: Record<View, string> = {
   songs: "/songs/",
   "look-back": "/look-back/",
   note: "/note/",
+  judge: "/judge/",
   "example-song": "/", // the example song card lives in the panel
 };
 

@@ -4,7 +4,7 @@ import "./site.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { DataCredits, PrivacyLine } from "@sot/core/ui/Footer";
+import { DataCredits, EraseEverything, PrivacyLine } from "@sot/core/ui/Footer";
 import { WebNav } from "./_nav/WebNav";
 
 export const metadata: Metadata = {
@@ -28,6 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <footer className="site-foot stack">
             <PrivacyLine />
             <DataCredits />
+            <EraseEverything />
           </footer>
         </div>
       </body>
