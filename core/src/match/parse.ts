@@ -94,8 +94,14 @@ export function artistParts(text: string): string[] {
       for (const p of parts) out.push(p.trim());
     }
   }
+  // v6.3: a name with a comma or "&" in it ("Tyler, The Creator", "Grandmaster Flash & the Furious
+  // Five") is also tried whole, last, so the searches sent (which use the first part) do not change.
   // No artist part shorter than two characters is ever used.
-  return [...new Set(out.filter((p) => [...p.replace(/\s/g, "")].length >= 2))];
+  const long = (p: string) => [...p.replace(/\s/g, "")].length >= 2;
+  const kept = out.filter(long);
+  const whole = text.replace(FEAT, "").trim().replace(/^[\s\-|]+|[\s\-|]+$/g, "");
+  if (names.length > 1 && kept.length && whole) kept.push(whole);
+  return [...new Set(kept)];
 }
 
 export function parseTitle(title: string): Parsed {

@@ -4,7 +4,7 @@ import { MATCH_FIXTURES, type MatchFixture } from "./match/fixtures";
 import MB_REPLIES from "./match/fixtures-mb.json";
 import { artistParts, parseTitle, stripNotes } from "./match/parse";
 import { normalise, type MbRecording } from "./match/studio";
-import { decide, searchesFor, type MatchResult } from "./match/v6";
+import { creditNames, decide, searchesFor, type MatchResult } from "./match/v6";
 
 describe("parsing a title", () => {
   it("reads artist《title（note）》tagline: the note removed; the artist before 《 first, any name after 》 after it (v6.2)", () => {
@@ -25,7 +25,21 @@ describe("parsing a title", () => {
     expect(parseTitle("「埃米纳姆｜最新催泪MV」Eminem - Somebody Save Me (feat. Jelly Roll) [Official Music Video]").queries[0]).toEqual({ track: "Eminem", artists: ["Somebody Save Me"] });
   });
   it("v6.2: names in brackets after an artist are more names", () => {
-    expect(parseTitle("[无损] 听完给跪下了｜COME CLOSER - TOMORA (AURORA, Tom Rowlands)").queries[0]!.artists).toEqual(["TOMORA", "AURORA", "Tom Rowlands"]);
+    expect(parseTitle("[无损] 听完给跪下了｜COME CLOSER - TOMORA (AURORA, Tom Rowlands)").queries[0]!.artists).toEqual(["TOMORA", "AURORA", "Tom Rowlands", "TOMORA (AURORA, Tom Rowlands)"]);
+  });
+  it("v6.3: a name with a comma or & in it is also tried whole, last", () => {
+    expect(artistParts("Tyler, The Creator")).toEqual(["Tyler", "The Creator", "Tyler, The Creator"]);
+    expect(artistParts("Grandmaster Flash & the Furious Five").at(-1)).toBe("Grandmaster Flash & the Furious Five");
+  });
+  it("v6.3: an artist from the title must be a whole name in the credit, never letters inside one (Bob's five-video check)", () => {
+    const rec = (credit: { name: string; artist: { id: string; name: string } }[]) =>
+      ({ id: "r", title: "Show Me", score: 100, "artist-credit": credit, releases: [{ id: "x", status: "Official", date: "1971", "release-group": { id: "g", "primary-type": "Single" } }] }) as MbRecording;
+    const garden = rec([{ name: "Pinewood Garden", artist: { id: "a", name: "Pinewood Garden" } }]);
+    expect(creditNames(garden).has(normalise("DEN"))).toBe(false);
+    expect(decide({ title: "t", version: false, queries: [{ track: "Show Me", artists: ["DEN"] }] }, [garden]).state).toBe("silent");
+    const den = rec([{ name: "DEN", artist: { id: "d", name: "DEN" } }]);
+    expect(decide({ title: "t", version: false, queries: [{ track: "Show Me", artists: ["DEN"] }] }, [den]).state).toBe("certain");
+    expect(creditNames(rec([{ name: "The Black Eyed Peas", artist: { id: "b", name: "The Black Eyed Peas" } }])).has(normalise("Black Eyed Peas"))).toBe(true);
   });
   it("removes notes repeatedly, in either bracket, traditional characters included", () => {
     expect(stripNotes("大梦归（电视剧《兰香如故》主题曲）")).toBe("大梦归");
@@ -37,11 +51,11 @@ describe("parsing a title", () => {
     expect(parseTitle("【Hi-Res】周深《大鱼》【4K】").queries[0]).toEqual({ track: "大鱼", artists: ["周深"] });
   });
   it("splits artists on & ＆ 、 , ， / x feat., and tries a mixed-script name as its parts", () => {
-    expect(artistParts("汪苏泷&五月天阿信")).toEqual(["汪苏泷", "五月天阿信"]);
+    expect(artistParts("汪苏泷&五月天阿信")).toEqual(["汪苏泷", "五月天阿信", "汪苏泷&五月天阿信"]);
     expect(artistParts("吴琳珂Moske")).toEqual(["吴琳珂Moske", "吴琳珂", "Moske"]);
     expect(artistParts("G.E.M.邓紫棋")).toEqual(["G.E.M.邓紫棋", "G.E.M.", "邓紫棋"]);
     expect(artistParts("A、B，C / D x E feat. F")).toEqual([]);
-    expect(artistParts("Ann、Bob，Cal / Dee x Eve feat. Fay")).toEqual(["Ann", "Bob", "Cal", "Dee", "Eve", "Fay"]);
+    expect(artistParts("Ann、Bob，Cal / Dee x Eve feat. Fay")).toEqual(["Ann", "Bob", "Cal", "Dee", "Eve", "Fay", "Ann、Bob，Cal / Dee x Eve feat. Fay"]);
   });
   it("never uses an artist part shorter than two characters (阿YueYue must not yield 阿)", () => {
     expect(artistParts("阿YueYue")).toEqual(["阿YueYue", "YueYue"]);

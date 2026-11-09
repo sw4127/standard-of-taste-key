@@ -14,7 +14,7 @@ import { MB, mbGate } from "../sources/musicbrainz";
 import { stripNotes, parseTitle, type Parsed } from "./parse";
 import { creditText, hasVersionWord, normalise, type MbRecording } from "./studio";
 
-export const RULE_VERSION = "v6.2";
+export const RULE_VERSION = "v6.3";
 
 /**
  * v6.1 (2026-11-08, after the first launch-gate run): a generic title names no song. "Main theme" by
@@ -84,6 +84,20 @@ export function toCandidate(r: MbRecording): Candidate {
   };
 }
 
+/**
+ * v6.3 (2026-11-09, Bob's five-video check): the names a recording's credit holds, each name as
+ * credited and the credit as a whole. An artist from the title must be one of these names, never a run
+ * of letters inside one: "DEN" matched "Pinewood Garden" ("Show Me", 1971) for DEN's "Show Me". Every
+ * name here is also inside the credit text, so v6.3 accepts nothing v6.2 refused on the artist.
+ */
+export function creditNames(r: MbRecording): Set<string> {
+  const out = new Set<string>([normalise(creditText(r))]);
+  // "Black Eyed Peas" is "The Black Eyed Peas": a leading "The" may be left out.
+  for (const a of r["artist-credit"] ?? []) for (const n of [a.name, a.name.replace(/^the\s+/i, "")]) out.add(normalise(n));
+  out.delete("");
+  return out;
+}
+
 /** The rule itself, over recordings already fetched: pure, so every fixture can replay it. */
 export function decide(parsed: Parsed, found: MbRecording[]): MatchResult {
   const byId = new Map(found.map((r) => [r.id, r]));
@@ -97,8 +111,8 @@ export function decide(parsed: Parsed, found: MbRecording[]): MatchResult {
     (r.score ?? 0) >= 85 &&
     parsed.queries.some((q) => {
       if (normalise(stripNotes(r.title)) !== normalise(q.track)) return false;
-      const credit = normalise(creditText(r));
-      return q.artists.some((a) => normalise(a).length > 0 && credit.includes(normalise(a)));
+      const names = creditNames(r);
+      return q.artists.some((a) => names.has(normalise(a)));
     }),
   );
   if (!c.length) return { state: "silent", reason: "no candidate", candidates: candidates(all), parsed };
