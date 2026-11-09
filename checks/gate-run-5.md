@@ -4,9 +4,9 @@ Uploader: 鼠鼠的音乐频道. List:  合集·音乐分享丨华语合集 http
 
 **How the marks were made.** Bob has not heard these songs, so at his request (2026-11-09) Claude marked each match from MusicBrainz's records, not by listening: the song's title matches, the credit holds an artist the title names, and the recording is a studio recording that is not a live, demo, remix or cover version. Length was not used: Bob notes this uploader records the music by hand. A first release later than the video's posting is noted as a doubtful date and, as the gate rules, not counted. 河流 · 蛙池: MusicBrainz also holds a 2020 demo of the same length; the uploader marks demos in titles (row 10) and did not here. 女明星 · 浪味仙贝: MusicBrainz holds only the 2025 album recording, though the video dates from 2023; marked Right with a doubtful date, the same as 裘德, DEN and 汉堡黄's rows. This is weaker than marking by ear: it shows the key lands on the artist's own studio recording of the song, not that the audio is the same take.
 
-**Verdict: INCOMPLETE.** 49 different videos so far (row 31 repeats row 32); video 50 of the list is still to run. All 17 different matches marked Right.
+**Verdict: PASS.** 50 different videos (row 31 repeats row 32 and is left out; video 50 of the list is row 51). All 17 matches marked Right. Even so, the true rate of wrong keys could be as high as about 6% (rule of three: 3 ÷ 50). The marks rest on MusicBrainz's records, not on listening (see above).
 
-Matched 17 of 49 different videos (coverage, not gated) · silent 32 · Right: 17 · Wrong song: 0 · Right song, wrong artist: 0 · Right song and artist, wrong version: 0 · Can't prove all three: 0 · dates doubtful (not counted): 4
+Matched 17 of 50 different videos (coverage 34%, not gated) · silent 33 · Right: 17 · Wrong song: 0 · Right song, wrong artist: 0 · Right song and artist, wrong version: 0 · Can't prove all three: 0 · dates doubtful (not counted): 4
 
 | # | Video title | Rule v6 | Recording (title · credit · first release · record) | Mark (by Claude, at Bob's request) | Date doubtful |
 |---|---|---|---|---|---|
@@ -60,3 +60,4 @@ Matched 17 of 49 different videos (coverage, not gated) · silent 32 · Right: 1
 | 48 | “其实活着不过就是解决一个又一个的问题”《二十三十》——谟西Mercy/何克林/茹克亚｜华语音乐人｜「鼠鼠的音乐分享47」 | silent (no candidate) | — | — |  |
 | 49 | “Like a vision, imagination”《THREE-BODY》——重塑雕像的权利｜华语乐队｜「鼠鼠的音乐分享48」 | match | [THREE-BODY · 重塑雕像的权利 · 2023-01-16 · THREE-BODY](https://musicbrainz.org/recording/4e1ff072-c371-47c2-ba7d-f083e4506a9e) | Right: song, artist and version |  |
 | 50 | 2023年11月13日“每次触碰都是场湮没 像漫无目的野鸽”《致盲》——Leo1Bee/陈婧霏｜华语音乐人｜「鼠鼠的音乐分享49」 | match | [致盲 · Leo1Bee & 陳婧霏 · 2023-10-24 · 曠野](https://musicbrainz.org/recording/332a8254-e461-4636-b66a-ac6657808869) | Right: song, artist and version |  |
+| 51 | “温柔的目光美得好像 好像一场梦一样”《好想永远永远都这样》——王OK｜华语音乐人｜「鼠鼠的音乐分享50」 | silent (no candidate), copied from the list page and run by Claude with the same rule code at Bob's request, 2026-11-09 | — | — |  |
