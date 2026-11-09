@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { HeardClock, mediaOf, readPage, videoIdOf } from "./page";
+import { HeardClock, mediaOf, readPage, TITLE_WAIT_MS, titleStillOld, videoIdOf } from "./page";
 
 /** A page shaped like a Bilibili video page (fictional uploader and songs; the class names are Bilibili's). */
 const PAGE = `
@@ -35,6 +35,19 @@ describe("reading the page", () => {
   it("the 音乐 tag is read as a clue and never gates a match", () => {
     const src = readFileSync(join(__dirname, "..", "..", "core", "src", "match", "v6.ts"), "utf8");
     expect(src).not.toMatch(/音乐|page_tags/);
+  });
+});
+
+describe("moving to the next video without a reload (Bob's five-video check)", () => {
+  const first = { video_id: "BV1ab4y1c7DE", part_number: 1, page_title: "Juniper Varga《Glass Harbour》", uploader_name: "", uploader_id: "", list_title: "", list_position: null, page_tags: [] };
+  const second = { ...first, video_id: "BV1zz4y1c7ZZ", page_title: "Example Singer《Paper Lantern》" };
+  it("waits while the new address still shows the last video's title", () => {
+    expect(titleStillOld(first, { ...second, page_title: first.page_title }, 500)).toBe(true);
+  });
+  it("reads the new video once its title is drawn, or after the wait if two videos share a title", () => {
+    expect(titleStillOld(first, second, 500)).toBe(false);
+    expect(titleStillOld(first, { ...second, page_title: first.page_title }, TITLE_WAIT_MS)).toBe(false);
+    expect(titleStillOld(null, second, 0)).toBe(false);
   });
 });
 

@@ -4,7 +4,7 @@
  * nothing, from Bilibili or anywhere; nothing it reads leaves this browser.
  */
 import type { LivePage } from "@sot/core/src/model";
-import { HeardClock, mediaOf, readPage, type PageFacts } from "./page";
+import { HeardClock, mediaOf, readPage, titleStillOld, type PageFacts } from "./page";
 
 export type LiveMessage = { type: "key:page" } & LivePage;
 
@@ -13,6 +13,8 @@ let clock = new HeardClock();
 let media: HTMLMediaElement | null = null;
 let playing = false;
 let lastUrl = "";
+let pendingUrl = "";
+let pendingSince = 0;
 const newToken = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 let token = newToken();
 
@@ -65,6 +67,11 @@ function check() {
   if (url !== lastUrl || key(next) !== key(facts)) {
     const newVideo = !facts || !next || next.video_id !== facts.video_id || next.part_number !== facts.part_number;
     if (next && !next.page_title) return; // the page has not drawn its title yet
+    if (url !== pendingUrl) {
+      pendingUrl = url;
+      pendingSince = Date.now();
+    }
+    if (next && titleStillOld(facts, next, Date.now() - pendingSince)) return; // the last video's title is still drawn
     lastUrl = url;
     facts = next;
     if (newVideo) {

@@ -47,6 +47,19 @@ export function readPage(doc: Document, url: string): PageFacts | null {
   };
 }
 
+/** How long to wait for Bilibili to redraw the title after it has changed the address. */
+export const TITLE_WAIT_MS = 4000;
+
+/**
+ * Bilibili changes the address to the next video before it redraws the title, so for a moment the page
+ * shows the new video with the last one's title (Bob's five-video check). Wait for the title to change,
+ * up to TITLE_WAIT_MS; two videos can share a title, so after that the title is taken as it is.
+ */
+export function titleStillOld(prev: PageFacts | null, next: PageFacts, waitedMs: number): boolean {
+  const newVideo = !!prev && (next.video_id !== prev.video_id || next.part_number !== prev.part_number);
+  return newVideo && next.page_title === prev!.page_title && waitedMs < TITLE_WAIT_MS;
+}
+
 /** The page's media element: a plain <video>, or Bilibili's own player element where it uses one. */
 export function mediaOf(doc: Document): HTMLMediaElement | null {
   return doc.querySelector<HTMLMediaElement>("video") ?? doc.querySelector<HTMLMediaElement>("bwp-video");

@@ -52,7 +52,17 @@ export function earlierFix(plays: PlayRow[], f: PageFacts): PlayRow | undefined 
   return [...plays].reverse().find((p) => p.video_id === f.video_id && p.part_number === f.part_number && (p.match_state === "fixed by me" || p.match_state === "not a song"));
 }
 
-type Status = { kind: "reading" } | { kind: "match"; result: MatchResult | null } | { kind: "unreachable" };
+/**
+ * The play kept for this viewing (the page's token), and whether it was matched on the title the page
+ * shows now. Bilibili can change the address before it redraws the title, so a viewing's first title
+ * may be the last video's: a viewing whose title has changed is matched again (Bob's five-video check).
+ */
+export function viewingFor(plays: PlayRow[], play_token: string, page_title: string): { row?: PlayRow; sameTitle: boolean } {
+  const row = plays.find((p) => p.play_id === `play-${play_token}`);
+  return { row, sameTitle: !!row && row.page_title === page_title };
+}
+
+type Status ={ kind: "reading" } | { kind: "match"; result: MatchResult | null } | { kind: "unreachable" };
 
 export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) {
   const st = useStore();
@@ -70,8 +80,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     if (!st.ready) return; // the plays kept in this browser come first: a fix may already hold
     let gone = false;
     setFixing(false);
-    const again = st.plays.find((p) => p.play_id === `play-${live.play_token}`);
-    if (again) {
+    const { row: again, sameTitle } = viewingFor(st.plays, live.play_token, f.page_title);
+    if (again && sameTitle) {
       play.current = again;
       savedHeard.current = again.heard_seconds;
       setStatus({ kind: "match", result: null });
@@ -81,13 +91,15 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     const row: PlayRow = {
       play_id: `play-${live.play_token}`, source: "live page", video_id: f.video_id, part_number: f.part_number, page_title: f.page_title,
       uploader_name: f.uploader_name, uploader_id: f.uploader_id, list_title: f.list_title, list_position: f.list_position,
-      page_tags: f.page_tags, started_at: localNow(), heard_seconds: live.heard_seconds, reached_end: live.ended ? "yes" : "no",
+      page_tags: f.page_tags, started_at: again?.started_at ?? localNow(), heard_seconds: Math.max(again?.heard_seconds ?? 0, live.heard_seconds),
+      reached_end: live.ended ? "yes" : "no",
       recording_id: fix?.recording_id ?? "", match_state: fix?.match_state ?? "unsure", match_rule_version: RULE_VERSION,
       song_title: fix?.song_title, song_artist: fix?.song_artist,
     };
     play.current = row;
-    savedHeard.current = live.heard_seconds;
-    actions.log("song_started", { play_id: row.play_id });
+    savedHeard.current = row.heard_seconds;
+    if (again) void actions.savePlay(row); // the match made on the stale title is cleared at once
+    else actions.log("song_started", { play_id: row.play_id });
     if (fix) {
       setStatus({ kind: "match", result: null });
       void actions.savePlay(row);

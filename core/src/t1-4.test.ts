@@ -1,6 +1,6 @@
 /** T1.4 Fix a match (FR-T1.4): a pick holds for every later play of the same video and part. */
 import { describe, expect, it } from "vitest";
-import { earlierFix } from "../ui/NowPlaying";
+import { earlierFix, viewingFor } from "../ui/NowPlaying";
 import type { PlayRow } from "./model";
 
 describe("FR-T1.4: a pick holds for every later play of the same video", () => {
@@ -21,6 +21,15 @@ describe("FR-T1.4: a pick holds for every later play of the same video", () => {
     expect(earlierFix(plays, facts)?.recording_id).toBe("second-pick");
     expect(earlierFix(plays, { ...facts, part_number: 2 })?.match_state).toBe("not a song");
     expect(earlierFix(plays, { ...facts, video_id: "BV1qq4y1c7QQ" })).toBeUndefined();
+  });
+});
+
+describe("a viewing whose title changes is matched again (Bob's five-video check)", () => {
+  const row = { play_id: "play-tok1", page_title: "Juniper Varga《Glass Harbour》" } as PlayRow;
+  it("reuses the play only while the page shows the title it was matched on", () => {
+    expect(viewingFor([row], "tok1", "Juniper Varga《Glass Harbour》")).toEqual({ row, sameTitle: true });
+    expect(viewingFor([row], "tok1", "Example Singer《Paper Lantern》")).toEqual({ row, sameTitle: false });
+    expect(viewingFor([row], "tok2", "Juniper Varga《Glass Harbour》")).toEqual({ row: undefined, sameTitle: false });
   });
 });
 
