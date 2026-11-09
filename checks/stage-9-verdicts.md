@@ -28,7 +28,7 @@ The build of The Key (Now scope) is done. Every line below is a verdict only Bob
 | **Five of his own videos show the right song** (T1.2) | Six videos: 1 named right, 4 right silences (the songs are not on MusicBrainz, or the video is a whole album), and 2 faults found and fixed (the next video kept the last song; DEN matched "Pinewood Garden"). No wrong song shown since. Fewer than five named | |
 | **Fixing takes two taps** (T1.4) | Done: a pick held after a reload | |
 | **Check A** (FR-CORE-4, five answers by Bob's ruling) on the questions way in | Bob took it once before the answers were fixed at five; not yet run again at `/judge` | |
-| **Swap test** against the friend's named songs (FR-CORE-4) | Not run: the friend names five to ten songs on the website first (about ten minutes) | |
+| **Swap test** against the friend's named songs (FR-CORE-4) | Put off until the friend has time (2026-11-09). Ready to run: Bob's private guide "Friend's Listening Test" (English and Chinese), an Incognito window, about 10 minutes for Bob and 20 for the friend; counts only come back | |
 | **Swap test on own-record lines** (FR-T2.2) | Not yet possible: needs plays of one song or artist on three or more separate days | |
 | **Check D** (FR-T4.5): does he try the suggested record and keep it | Not yet: needs "Where next?" to suggest a record over a few listening sessions | |
 
