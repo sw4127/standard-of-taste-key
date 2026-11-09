@@ -6,6 +6,8 @@ Uploader: 鼠鼠的音乐频道. List:  合集·音乐分享丨华语合集 http
 
 **Verdict: PASS.** 50 different videos (row 31 repeats row 32 and is left out; video 50 of the list is row 51). All 17 matches marked Right. Even so, the true rate of wrong keys could be as high as about 6% (rule of three: 3 ÷ 50). The marks rest on MusicBrainz's records, not on listening (see above).
 
+**Carried to v6.3 (2026-11-09), by Bob's verdict.** After this pass, Bob's five-video check found that v6.2's artist check took letters inside a longer name (DEN inside "Pinewood Garden"). Rule v6.3 requires a whole name; it accepts nothing v6.2 refused on the artist. These 50 titles, replayed live under v6.3, gave the same 17 recordings and the same silences. Bob ruled that this pass counts for v6.3; a sixth run was offered as the stricter proof and declined.
+
 Matched 17 of 50 different videos (coverage 34%, not gated) · silent 33 · Right: 17 · Wrong song: 0 · Right song, wrong artist: 0 · Right song and artist, wrong version: 0 · Can't prove all three: 0 · dates doubtful (not counted): 4
 
 | # | Video title | Rule v6 | Recording (title · credit · first release · record) | Mark (by Claude, at Bob's request) | Date doubtful |
