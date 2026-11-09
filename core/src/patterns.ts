@@ -126,7 +126,7 @@ function keyLine(songs: Song[]): PatternLine | null {
     return {
       id: `key-major:${major}/${n}${shared ? `:${sharedKey}` : ""}`,
       kind: "key-major",
-      pattern: `Of the ${num(n)} songs whose key could be measured, ${num(major)} are in a major key${tail}`,
+      pattern: major === n ? `All ${num(n)} songs whose key could be measured are in a major key${tail}` : `Of the ${num(n)} songs whose key could be measured, ${num(major)} are in a major key${tail}`,
       gloss,
       evidence,
       chance: chances.join(" "),
@@ -138,7 +138,7 @@ function keyLine(songs: Song[]): PatternLine | null {
   return {
     id: `key-shared:${sharedKey}:${shared!.length}/${n}`,
     kind: "key-shared",
-    pattern: `${cap(num(shared!.length))} of the ${num(n)} songs whose key could be measured are in ${sharedKey}, and they're by ${num(artists)} different artists.`,
+    pattern: `${shared!.length === n ? `All ${num(n)}` : `${cap(num(shared!.length))} of the ${num(n)}`} songs whose key could be measured are in ${sharedKey}, and they're by ${num(artists)} different artists.`,
     gloss,
     evidence,
     chance: chances.join(" "),
@@ -203,7 +203,7 @@ function partLine(songs: Song[]): PatternLine | null {
   return {
     id: `${kind}:${c}/${m}`,
     kind,
-    pattern: `In ${num(c)} of the ${num(m)} songs where you said what you come back for, you picked “${top}”${never}`,
+    pattern: `In ${c === m ? `all ${num(m)}` : `${num(c)} of the ${num(m)}`} songs where you said what you come back for, you picked “${top}”${never}`,
     evidence: answered.map((s) => ({ entry_id: s.entry.entry_id, text: `${songLabel(s)}: ${s.entry.comes_back_for}`, source: YOUR_ANSWER })),
     ...offered(kind),
     entry_ids: answered.map((s) => s.entry.entry_id),
@@ -231,7 +231,8 @@ function releaseLine(songs: Song[]): PatternLine | null {
   return {
     id: `release-window:${y1}-${y2}:${best.length}/${n}`,
     kind: "release-window",
-    pattern: `${cap(num(best.length))} of your ${num(n)} songs came out ${when}.`,
+    // "Four of your four songs" reads as a slip: a whole set is "All four of your songs".
+    pattern: best.length === n ? `All ${num(n)} of your songs came out ${when}.` : `${cap(num(best.length))} of your ${num(n)} songs came out ${when}.`,
     evidence: d.map((s) => ({
       entry_id: s.entry.entry_id,
       text: `${songLabel(s)} · first released in ${s.facts.first_release_year}, according to ${s.facts.date_source.label}`,

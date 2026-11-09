@@ -21,6 +21,9 @@ import { actions, hydrate, MAX_SONGS, ME, others, songsOf, useStore } from "./st
 const fetchFn: FetchFn = (url) => fetch(url);
 const DEBOUNCE_MS = 450;
 
+/** After a song is added, the box empties, unless a next song was typed while the last was being found. */
+export const afterAdding = (now: string, typed: string) => (now === typed ? "" : now);
+
 function Choices<T extends string>({ legend, options, value, onPick }: { legend: string; options: readonly T[]; value: T | "unanswered"; onPick: (v: T | "unanswered") => void }) {
   return (
     <fieldset className="choices">
@@ -95,6 +98,7 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
   }, [text]);
 
   const pick = async (c: Candidate) => {
+    const typed = text;
     setAdding(c.key);
     setProblem(null);
     const r = await confirmSong(c, text, { fetchFn });
@@ -107,8 +111,9 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
       setProblem(`${c.title} is already on the list.`);
       return;
     }
-    const added = actions.addSong(r.facts, text, person, r.matched_by);
-    setText("");
+    const added = actions.addSong(r.facts, typed, person, r.matched_by);
+    // Finding the studio recording can take seconds; a next song typed meanwhile is kept.
+    setText((now) => afterAdding(now, typed));
     // A newly confirmed song opens its two questions.
     if (added) onAdded(added);
   };

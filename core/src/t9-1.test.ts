@@ -136,3 +136,11 @@ describe("one song is one title by one artist credit", () => {
     expect(c.map((x) => `${x.artist_credit} · ${x.year}`).sort()).toEqual(["Juniper Varga + The Puppets · 2009", "Juniper Varga · 1975"]);
   });
 });
+
+describe("a song typed while the last one is still being added is kept (the friend's walk-through)", () => {
+  it("the box empties only if it still holds what was searched", async () => {
+    const { afterAdding } = await import("../ui/Songs");
+    expect(afterAdding("Clocks Coldplay", "Clocks Coldplay")).toBe("");
+    expect(afterAdding("Hey Ya OutKast", "Clocks Coldplay")).toBe("Hey Ya OutKast");
+  });
+});

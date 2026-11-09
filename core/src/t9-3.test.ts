@@ -31,7 +31,7 @@ describe("mode and key", () => {
   });
   it("names the major share and the shared key, with the chance figure and its assumption", () => {
     const line = linesAcross(four, NOW).find((l) => l.kind === "key-major")!;
-    expect(line.pattern).toBe("Of the four songs whose key could be measured, four are in a major key, and three are in B-flat major.");
+    expect(line.pattern).toBe("All four songs whose key could be measured are in a major key, and three are in B-flat major.");
     expect(line.chance).toMatch(/if major and minor were equally likely/i);
     expect(line.chance).toMatch(/if all 24 keys were equally likely/i);
     expect(line.gloss).toBeTruthy();
@@ -69,6 +69,10 @@ describe("the part named most", () => {
     expect(line.pattern).toBe("In three of the four songs where you said what you come back for, you picked “the bridge”, and never “the chorus”.");
     expect(line.evidence.every((e) => e.source.label === "Your answer")).toBe(true);
   });
+  it("every answer the same part reads \"In all four songs\"", () => {
+    const line = linesAcross(titles.map((t) => named(byTitle(t), "the bridge")), NOW).find((l) => l.kind === "part:the bridge")!;
+    expect(line.pattern).toBe("In all four songs where you said what you come back for, you picked “the bridge”, and never “the chorus”.");
+  });
   it("two answers are not enough; a tie is no line; 'not sure' does not count", () => {
     expect(kinds(titles.slice(0, 3).map((t, i) => named(byTitle(t), i < 2 ? "the bridge" : "not sure")))).not.toContain("part:the bridge");
     expect(kinds(titles.map((t, i) => named(byTitle(t), i < 2 ? "the bridge" : "a verse"))).some((k) => k.startsWith("part:"))).toBe(false);
@@ -85,6 +89,11 @@ describe("when they came out, and 'That date is wrong'", () => {
     const line = linesAcross(songs(), NOW).find((l) => l.kind === "release-window")!;
     expect(line.pattern).toBe("Three of your four songs came out between 2020 and 2021.");
     expect(line.evidence.every((e) => /first released in \d{4}, according to /.test(e.text) && e.date_of)).toBe(true);
+  });
+  it("a whole set reads \"All three of your songs\", never \"Three of your three songs\"", () => {
+    const three = ["Glass Harbour", "Second Lamp", "The Long Stair"].map((t) => named(byTitle(t)));
+    const line = linesAcross(three, NOW).find((l) => l.kind === "release-window")!;
+    expect(line.pattern).toMatch(/^All three of your songs came out /);
   });
   it("a disputed date takes the song out of every date line", () => {
     const s = songs();
