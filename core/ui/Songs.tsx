@@ -12,7 +12,7 @@ import { noteAvailable } from "../src/note";
 import { confirmSong } from "../src/sources/confirm";
 import type { FetchFn } from "../src/sources/http";
 import { searchSongs, type Candidate } from "../src/sources/musicbrainz";
-import { edgeStyle, KeyChip } from "./KeyChip";
+import { edgeClass, edgeStyle, KeyChip } from "./KeyChip";
 import { LineAcross } from "./LineAcross";
 import { setJudgeSource } from "./judge-source";
 import { Go } from "./nav";
@@ -30,7 +30,7 @@ function Choices<T extends string>({ legend, options, value, onPick }: { legend:
       <legend className="label">{legend}</legend>
       <div className="chip-row">
         {options.map((o) => (
-          <button key={o} type="button" className="act act-button" aria-pressed={value === o} onClick={() => onPick(value === o ? "unanswered" : o)}>
+          <button key={o} type="button" className="act choice" aria-pressed={value === o} onClick={() => onPick(value === o ? "unanswered" : o)}>
             {o}
           </button>
         ))}
@@ -42,7 +42,7 @@ function Choices<T extends string>({ legend, options, value, onPick }: { legend:
 function SongEntry({ entry, facts, open, onToggle }: { entry: NamedSong; facts: SongFacts; open: boolean; onToggle: () => void }) {
   const answers = [entry.comes_back_for, entry.found_me].filter((a) => a !== "unanswered");
   return (
-    <li className="card stack" style={edgeStyle(facts.key)}>
+    <li className={`card stack${edgeClass(facts.key)}`} style={edgeStyle(facts.key)}>
       <p className="meta">
         <span className="song-name">{facts.title}</span> · {facts.artist_credit} · {facts.first_release_year ?? "year not listed"}
       </p>
@@ -163,9 +163,11 @@ function AddPerson({ onAdded }: { onAdded: (id: string) => void }) {
   const [consent, setConsent] = useState("");
   if (!open) {
     return (
-      <button type="button" className="act" onClick={() => setOpen(true)}>
-        Add someone else&#39;s songs
-      </button>
+      <div className="card slim">
+        <button type="button" className="act" onClick={() => setOpen(true)}>
+          Add someone else&#39;s songs
+        </button>
+      </div>
     );
   }
   const ready = label.trim().length > 0 && consent.trim().length > 0;
@@ -207,23 +209,25 @@ export function Songs() {
   const people = others(st);
   const who = person === ME ? null : people.find((p) => p.person_id === person);
 
-  if (!st.ready) return <p className="meta" role="status">Reading what this browser keeps…</p>;
+  if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
 
   return (
     <section className="stack-lg">
+      <div className="card stack">
       {people.length > 0 && (
         <div className="chip-row" role="group" aria-label="Whose songs">
-          <button type="button" className="act act-button" aria-pressed={person === ME} onClick={() => setPerson(ME)}>
+          <button type="button" className="act choice" aria-pressed={person === ME} onClick={() => setPerson(ME)}>
             Your songs
           </button>
           {people.map((p) => (
-            <button key={p.person_id} type="button" className="act act-button" aria-pressed={person === p.person_id} onClick={() => setPerson(p.person_id)}>
+            <button key={p.person_id} type="button" className="act choice" aria-pressed={person === p.person_id} onClick={() => setPerson(p.person_id)}>
               Songs {theirName(p.label)} named
             </button>
           ))}
         </div>
       )}
       <p className="line">{who ? `Songs ${theirName(who.label)} named. Any order. No ranking.` : "Name a few songs that come to mind. Any order. No ranking."}</p>
+      </div>
 
       <SongSearch person={person} full={full} have={new Set(songs.map((s) => s.facts.recording_id))} onAdded={setOpen} />
 
@@ -236,13 +240,13 @@ export function Songs() {
       )}
 
       {songs.length > 0 && songs.length < MIN_SONGS_FOR_LINES && (
-        <p className="record">
+        <p className="card record">
           {MIN_SONGS_FOR_LINES - songs.length === 1 ? "One more song" : "Two more songs"}, and lines across these songs can start.
         </p>
       )}
 
       {songs.length >= MIN_SONGS_FOR_LINES && !line && (
-        <p className="record">No pattern across these songs is strong enough to show yet. Another song, or an answer to the two questions, may change that.</p>
+        <p className="card record">No pattern across these songs is strong enough to show yet. Another song, or an answer to the two questions, may change that.</p>
       )}
 
       {line && (
@@ -254,12 +258,14 @@ export function Songs() {
           nextLabel={lineIndex + 1 >= lines.length ? "Back to the first line" : "Next line"}
         />
       )}
-      {lines.length > 1 && <p className="meta">Line {Math.min(lineIndex, lines.length - 1) + 1} of {lines.length} across these songs.</p>}
+      {lines.length > 1 && <p className="card slim meta">Line {Math.min(lineIndex, lines.length - 1) + 1} of {lines.length} across these songs.</p>}
 
-      <div className="row">
-        {person === ME && noteAvailable(st.choices, st.words, ME) && <Go to="note">Your taste in words, so far</Go>}
-        {lines.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
-      </div>
+      {((person === ME && noteAvailable(st.choices, st.words, ME)) || lines.length > 0) && (
+        <div className="card row">
+          {person === ME && noteAvailable(st.choices, st.words, ME) && <Go to="note">Your taste in words, so far</Go>}
+          {lines.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
+        </div>
+      )}
       {person === ME && <AddPerson onAdded={setPerson} />}
     </section>
   );

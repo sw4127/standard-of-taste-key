@@ -17,6 +17,15 @@
 12. Never ask "why do you like it".
 13. The product never pitches how it was built during use.
 
+**Amended 2026-11-10 and 2026-11-11 (the rework after Stage 9; PRD "Amendments of 2026-11-10", A1, and "Amendment of 2026-11-11"). Appended on 2026-11-11. The lines above are kept as history; where a line below differs from one above, the line below governs.**
+- **Rule 1 (replaces rule 1 above).** Code decides every fact and every number. A model never scores, ranks or labels a person, and writes no sentence the product shows, with two exceptions: the stored, checked stories (as before), and **the reading** (FR-T9.9), where a model may quote the person's own words, choose which quotes to place together and which library finding sits nearest, and phrase the result as a question the person accepts, corrects or rejects. Code checks every quote word for word; a reading that fails a check is not shown. A reading, once made, is stored and shown unchanged, and is made again only when the person asks.
+- **Rule 3, one addition.** After opting in, a person may write about loss or a painful time, and the reading may quote those words. Every guess is about what a record did, never about how two events in the person's life relate; the model says a record did only what the person's own sentence names the record as doing; it adds no cause, no comfort and no advice. Everything else in rule 3 stands.
+- **Rule 6 (replaces rule 6 above).** Nothing about a listener leaves the browser, except: recording and album names or IDs sent to MusicBrainz and AcousticBrainz; a Bilibili page the user taps open; the export file the user makes; and, **only when the person taps to make a reading or to check their wording**, their written answers, the names of their records and the facts code computed about those records, sent to the model provider of the account they connected (Anthropic, with the person's own API key, by the amendment of 2026-11-11). The screen says what is sent and to whom before each send. No analytics, no server of ours, no accounts of ours, no key of ours.
+- **Rule 10 (replaces rule 10 above).** Everything the product does with code alone is free. No payments are taken, no payment details are held, and nothing here costs Bob money to run. The one feature that costs money each time it runs (the reading) is paid by the person, to their own model provider, through their own account; the person sees the cost before each use and can decline. No payment hook is built.
+- **The copy rule (design rule 10).** Every sentence the product shows is a whole plain sentence: no clipped fragments, no figure of speech where a fact will do, and a term from music theory only together with what the person can see or hear of it on the screen.
+- **A real API key never enters a test, a fixture, a file, a commit or a chat.** Tests call a stand-in.
+- Task IDs now run to T9.10; the rework's steps are R1 to R8.
+
 **How work runs here.**
 - Every build step names its task IDs (T1.1 … T9.5, FR-CORE-1 … 4).
 - One test file per task ID, named after it (`t9-3.test.ts`); `npm test` runs before every commit.

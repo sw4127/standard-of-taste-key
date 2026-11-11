@@ -55,11 +55,11 @@ function LookBackCard({ line, stretch, owner }: { line: LookBackLine; stretch: Q
       <p className="label">What it might say</p>
       <div className="readings stack">
         {line.readings.map((r, i) => (
-          <button key={r.template_id} type="button" className="act act-button reading" aria-pressed={pick === (i ? "second" : "first")} onClick={() => choose(i ? "second" : "first")}>
+          <button key={r.template_id} type="button" className="act choice reading" aria-pressed={pick === (i ? "second" : "first")} onClick={() => choose(i ? "second" : "first")}>
             {r.ask}
           </button>
         ))}
-        <button type="button" className="act act-button" aria-pressed={pick === "neither"} onClick={() => choose("neither")}>
+        <button type="button" className="act choice" aria-pressed={pick === "neither"} onClick={() => choose("neither")}>
           Neither
         </button>
       </div>
@@ -91,10 +91,10 @@ function Whose({ read, onKept, onCancel }: { read: Read; onKept: (person: string
       )}
       <p className="label">Whose file is this?</p>
       <div className="row">
-        <button type="button" className="act act-button" onClick={() => keep(ME)}>
+        <button type="button" className="act choice" onClick={() => keep(ME)}>
           Mine
         </button>
-        <button type="button" className="act act-button" aria-pressed={someoneElse} onClick={() => setSomeoneElse(true)}>
+        <button type="button" className="act choice" aria-pressed={someoneElse} onClick={() => setSomeoneElse(true)}>
           Someone else&#39;s
         </button>
         <button type="button" className="act" onClick={onCancel}>
@@ -113,7 +113,7 @@ function Whose({ read, onKept, onCancel }: { read: Read; onKept: (person: string
           <input id="lb-label" className="field" value={label} placeholder="my friend" onChange={(e) => setLabel(e.target.value)} />
           <label className="label" htmlFor="lb-consent">How did they agree to this? In your words</label>
           <textarea id="lb-consent" className="field words-box" rows={2} value={consent} onChange={(e) => setConsent(e.target.value)} />
-          <button type="submit" className="act act-button" disabled={!label.trim() || !consent.trim()}>
+          <button type="submit" className="act choice" disabled={!label.trim() || !consent.trim()}>
             Show the lines
           </button>
         </form>
@@ -177,17 +177,18 @@ export function LookBack() {
 
   const showDrop = !read && (adding || (kept.length === 0 && owner !== EXAMPLE));
 
-  if (!st.ready) return <p className="meta" role="status">Reading what this browser keeps…</p>;
+  if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
 
   return (
     <section className="stack-lg">
       {owner === EXAMPLE && <ExampleLabel>A made-up listening history; every artist in it is invented.</ExampleLabel>}
+      <div className="card stack">
       <p className="line">Drop your Spotify export. It is read in this browser and never uploaded.</p>
 
       {kept.length > 0 && !read && (
         <div className="chip-row" role="group" aria-label="Files kept in this browser">
           {kept.map((p) => (
-            <button key={p} type="button" className="act act-button" aria-pressed={owner === p && !adding} onClick={() => { setViewing(p); setAdding(false); }}>
+            <button key={p} type="button" className="act choice" aria-pressed={owner === p && !adding} onClick={() => { setViewing(p); setAdding(false); }}>
               {nameOf(st, p)} · {st.histories[p]!.length.toLocaleString("en-GB")} plays
             </button>
           ))}
@@ -196,6 +197,7 @@ export function LookBack() {
           </button>
         </div>
       )}
+      </div>
 
       {showDrop && (
         <div
@@ -265,12 +267,12 @@ export function LookBack() {
             </select>
             <p className="meta">Only plays of 30 seconds or more are counted.</p>
           </div>
-          {lines.length === 0 && <p className="record">Nothing arrived, dropped off or came back {quarterPhrase(chosen)}.</p>}
+          {lines.length === 0 && <p className="card record">Nothing arrived, dropped off or came back {quarterPhrase(chosen)}.</p>}
           {lines.map((l) => (
             <LookBackCard key={`${owner}:${quarterLabel(chosen)}:${l.id}`} line={l} stretch={chosen} owner={owner!} />
           ))}
           {owner !== EXAMPLE && (
-            <div className="row">
+            <div className="card row">
               <button
                 type="button"
                 className="act"
@@ -287,9 +289,11 @@ export function LookBack() {
             </div>
           )}
           {owner === EXAMPLE && (
-            <button type="button" className="act" onClick={() => setViewing(null)}>
-              Close the example
-            </button>
+            <div className="card slim">
+              <button type="button" className="act" onClick={() => setViewing(null)}>
+                Close the example
+              </button>
+            </div>
           )}
         </>
       )}

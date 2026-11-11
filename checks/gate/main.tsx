@@ -166,7 +166,7 @@ function Gate() {
                     </p>
                     <div className="chip-row" role="group" aria-label={`Mark for title ${r.i + 1}`}>
                       {MARKS.map((m) => (
-                        <button key={m} type="button" className="act act-button" aria-pressed={r.mark === m} onClick={() => mark(r.i, { mark: r.mark === m ? undefined : (m as Mark) })}>
+                        <button key={m} type="button" className="act choice" aria-pressed={r.mark === m} onClick={() => mark(r.i, { mark: r.mark === m ? undefined : (m as Mark) })}>
                           {m}
                         </button>
                       ))}

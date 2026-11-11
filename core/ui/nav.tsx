@@ -43,7 +43,7 @@ export function Go({ to, children, className = "act", onGo }: { to: View; childr
 /** Marks anything made up (rule 8). */
 export function ExampleLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="label example-label">
+    <p className="card slim label example-label">
       <span className="example-tag">Example</span> {children}
     </p>
   );

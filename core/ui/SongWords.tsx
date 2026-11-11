@@ -88,11 +88,11 @@ function Proof({ line, song, play }: { line: FirstLine; song: SongFacts; play: P
         <div className="stack">
           <p className="label">What it might say</p>
           {line.readings.map((r, i) => (
-            <button key={r.template_id} type="button" className="act act-button reading" aria-pressed={choice === (i ? "second" : "first")} onClick={() => pick(i ? "second" : "first")}>
+            <button key={r.template_id} type="button" className="act choice reading" aria-pressed={choice === (i ? "second" : "first")} onClick={() => pick(i ? "second" : "first")}>
               {r.ask}
             </button>
           ))}
-          <button type="button" className="act act-button" aria-pressed={choice === "neither"} onClick={() => pick("neither")}>
+          <button type="button" className="act choice" aria-pressed={choice === "neither"} onClick={() => pick("neither")}>
             Neither
           </button>
         </div>
@@ -173,7 +173,7 @@ function ComeBackFor({ song, play }: { song: SongFacts; play: PlayRow }) {
       <legend className="label">What do you come back for in this song?</legend>
       <div className="chip-row">
         {PARTS.map((p) => (
-          <button key={p} type="button" className="act act-button" aria-pressed={entry?.comes_back_for === p} onClick={() => answer(p)}>
+          <button key={p} type="button" className="act choice" aria-pressed={entry?.comes_back_for === p} onClick={() => answer(p)}>
             {p}
           </button>
         ))}

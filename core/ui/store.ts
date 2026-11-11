@@ -159,6 +159,13 @@ export function hydrate(): Promise<void> {
 
 export const storageFailed = () => saveFailed;
 
+/** For tests of the screens only: put rows in place without a database. */
+export function seedForTests(rows: Partial<State>): void {
+  state = { ...EMPTY, ready: true, ...rows };
+  hydrating = Promise.resolve();
+  emit();
+}
+
 // ---- Actions -----------------------------------------------------------------------------------------
 
 export const actions = {

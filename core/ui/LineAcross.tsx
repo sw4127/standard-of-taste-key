@@ -65,14 +65,14 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
           <button
             key={r.template_id}
             type="button"
-            className="act act-button reading"
+            className="act choice reading"
             aria-pressed={choice?.choice === (i === 0 ? "first" : "second")}
             onClick={() => pick(i === 0 ? "first" : "second")}
           >
             {r.ask}
           </button>
         ))}
-        <button type="button" className="act act-button" aria-pressed={choice?.choice === "neither"} onClick={() => pick("neither")}>
+        <button type="button" className="act choice" aria-pressed={choice?.choice === "neither"} onClick={() => pick("neither")}>
           Neither
         </button>
       </div>
@@ -94,7 +94,7 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
           </label>
           <button
             type="button"
-            className="act act-button"
+            className="act choice"
             disabled={!draft.trim()}
             onClick={() => actions.write({ person_id: person, question: line.question, about: line.id, text: draft, in_note: inNote })}
           >

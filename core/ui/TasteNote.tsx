@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import { passes } from "../src/checks";
-import { edgeColour, keyName } from "../src/design/key-colour";
+import { keyVars, keyName } from "../src/design/key-colour";
 import { assembleNote, noteAvailable } from "../src/note";
 import { ExampleLabel, Go, SourceRef } from "./nav";
 import { actions, hydrate, songsOf, useStore } from "./store";
@@ -28,15 +28,15 @@ export function TasteNote({ person = "me" }: { person?: string }) {
   const own = note.own.filter((w) => passes(w.text, "words"));
   const keptAside = note.own.filter((w) => !passes(w.text, "words"));
 
-  if (!st.ready) return <p className="meta" role="status">Reading what this browser keeps…</p>;
+  if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
 
   if (!noteAvailable(st.choices, st.words, person)) {
     return (
       <section className="stack-lg">
-        <p className="record">Your note starts once you keep two readings, or one reading and an answer in your own words.</p>
-        <p>
+        <div className="card stack">
+          <p className="record">Your note starts once you keep two readings, or one reading and an answer in your own words.</p>
           <Go to="songs">Name a few songs that come to mind</Go>
-        </p>
+        </div>
       </section>
     );
   }
@@ -56,7 +56,7 @@ export function TasteNote({ person = "me" }: { person?: string }) {
           </ul>
           <div className="swatches" aria-label={`Keys of your measured songs: ${measured.map((s) => keyName(s.facts.key!)).join(", ") || "none measured"}`}>
             {measured.map((s) => (
-              <span key={s.entry.entry_id} className="swatch" title={`${s.facts.title}: ${keyName(s.facts.key!)}`} style={{ background: edgeColour(s.facts.key!) }} />
+              <span key={s.entry.entry_id} className="swatch" title={`${s.facts.title}: ${keyName(s.facts.key!)}`} style={keyVars(s.facts.key!)} />
             ))}
           </div>
         </article>
@@ -122,9 +122,11 @@ export function TasteNote({ person = "me" }: { person?: string }) {
           )}
         </article>
       )}
-      <button type="button" className="act" onClick={() => setBack((b) => !b)}>
-        {back ? "Turn to the front" : "Turn over"}
-      </button>
+      <div className="card slim">
+        <button type="button" className="act" onClick={() => setBack((b) => !b)}>
+          {back ? "Turn to the front" : "Turn over"}
+        </button>
+      </div>
     </section>
   );
 }

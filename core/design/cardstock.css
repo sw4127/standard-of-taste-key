@@ -1,18 +1,31 @@
 /*
- * CARD STOCK (PRD 6.1; the design logic is part of the specification).
- * Three rules: one meaning per colour; one speaker per typeface; the card holds only what fits.
- * This file is the single source of the colour tokens. `card-stock.test.ts` reads it and checks
- * every text colour clears 7:1 on both card and ground, in both modes.
+ * CARD STOCK, SECOND VERSION (PRD A3; design rules 1 to 12 of 2026-11-10).
+ * Kept from the first version: one meaning per colour; one speaker per typeface; four type sizes;
+ * every text colour at 7:1 or better on the card.
+ *
+ *  1. The card is the eggshell. The ground is a flat stone tone of the same family, one step deeper.
+ *  2. No product text on the ground: every sentence, control and figure sits on a card.
+ *  3. Flat: no shadows, no gradients, no textures, nothing that imitates a material.
+ *  4. The key colour is a flat rule 3 px high along the card's lower edge, and a dot on the circle.
+ *  7. Strong colour takes small area; large areas stay near grey.
+ *  8. One filled button per screen for the main action; every other action is an underlined link in
+ *     the action colour. No outline-only buttons. The action colour appears on nothing else.
+ *  9. The serif is the card's engraving (the song's name, the product's one line); the sans is the
+ *     ledger (facts and counts); the mono is the instrument (what can be pressed, labels, the key's name).
+ *
+ * This file is the single source of the colour tokens. `card-stock.test.ts` reads it.
  */
 
 :root {
   /* Colour: each value has one job. */
-  --ground: #e4ece8;   /* 蛋壳青: the table the card lies on */
-  --card: #f3f6f2;     /* the paper */
-  --ink: #1b2220;      /* the product's words and the person's own words */
-  --quiet: #454f4a;    /* evidence and facts: counts, dates, credits, sources */
-  --hairline: #cbd6d0; /* card edges and dividers; never text */
-  --action: #4235ba;   /* only what you can act on: links, the focus ring, the answer you picked */
+  --ground: #c3cdc8;    /* the desk: a flat stone tone, one step deeper than the card; never behind text */
+  --card: #e4ece8;      /* 蛋壳青, the eggshell: the card itself */
+  --ink: #1b2220;       /* the product's words and the person's own words */
+  --quiet: #454f4a;     /* facts: counts, dates, credits, sources, labels */
+  --hairline: #b3c1ba;  /* dividers on a card; never text */
+  --tick: #9fb0a8;      /* the twelve small marks of the circle of keys; never text */
+  --action: #4235ba;    /* only what can be pressed: the filled button, links, the focus ring */
+  --on-action: #f3f6f2; /* the words on the filled button */
 
   /* Type: one face for each speaker. CJK titles fall back to the system face at the same size. */
   --cjk: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC";
@@ -37,14 +50,21 @@
   color-scheme: light dark;
 }
 
+/*
+ * Dark mode, derived on the same relations (design rule 1): the card stays the lighter object, the
+ * ground is the same stone family one step deeper, every text colour clears 7:1 on the card, and
+ * the filled button keeps the one action colour.
+ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ground: #141a18;
-    --card: #1c2421;
-    --ink: #e6ece9;
-    --quiet: #a9b5b0;
-    --hairline: #2e3935;
-    --action: #aea3ff;
+    --ground: #0c1311;
+    --card: #212825;
+    --ink: #e6edea;
+    --quiet: #a9b4af;
+    --hairline: #414b46;
+    --tick: #5c6861;
+    --action: #ada9ff;
+    --on-action: #0c1311;
   }
 }
 
@@ -75,22 +95,53 @@ body {
 
 /* ---- The card ------------------------------------------------------------------------------ */
 
+/* Told from the ground by its tone alone: no border, no shadow. */
 .card {
   background: var(--card);
-  border: 0.5px solid var(--hairline);
-  /* The painted edge: the music's key, or a hairline when no key was measured. */
-  border-left: 3px solid var(--edge, var(--hairline));
   border-radius: 2px;
-  padding: var(--s4);
+  padding: var(--s4) var(--s5);
 }
 
 .card + .card {
   margin-top: var(--s3);
 }
 
+/* A card that only carries a name or a way back. */
+.card.slim {
+  padding: var(--s2) var(--s5);
+}
+
+/* The key's colour: a flat rule along the card's lower edge. No measured key, no rule. */
+.keyed {
+  --key: var(--key-light);
+  border-bottom: 3px solid var(--key);
+}
+
+.key-fill {
+  fill: var(--key-light);
+}
+
+.swatch {
+  background: var(--key-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  .keyed {
+    --key: var(--key-dark);
+  }
+
+  .key-fill {
+    fill: var(--key-dark);
+  }
+
+  .swatch {
+    background: var(--key-dark);
+  }
+}
+
 /* ---- Speakers ------------------------------------------------------------------------------- */
 
-/* The product speaks: Fraunces roman 500, optical size follows the font size. */
+/* The serif is the card's engraving: the product's one line. */
 .line {
   font-family: var(--face-product);
   font-weight: 500;
@@ -98,6 +149,27 @@ body {
   font-size: var(--size-line);
   line-height: 1.35;
   color: var(--ink);
+  margin: 0;
+}
+
+/* The song's name, as the artist wrote it: never re-cased. */
+.song-title {
+  font-family: var(--face-product);
+  font-weight: 500;
+  font-optical-sizing: auto;
+  font-size: var(--size-line);
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* The artist, in spaced capitals, as a title line on a calling card. */
+.artist {
+  font-family: var(--face-record);
+  font-size: var(--size-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--quiet);
   margin: 0;
 }
 
@@ -120,7 +192,7 @@ body {
   }
 }
 
-/* The record speaks: Geist 400 in quiet ink. */
+/* The sans is the ledger: facts and counts, in quiet ink. */
 .record {
   font-family: var(--face-record);
   font-weight: 400;
@@ -148,73 +220,123 @@ body {
   margin: 0;
 }
 
+/* The mono is the instrument: labels, the key's name, and what can be pressed. */
 .label {
-  font-family: var(--face-record);
+  font-family: var(--face-action);
   font-size: var(--size-label);
-  font-weight: 500;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--quiet);
   margin: 0;
 }
 
-/* What you can do: Geist Mono, dotted underline, action colour. Nothing else is mono. */
+.key-name {
+  font-family: var(--face-action);
+  font-size: var(--size-label);
+  color: var(--quiet);
+}
+
+.key-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.key-ring,
+.key-circle {
+  flex: none;
+}
+
+.tick {
+  fill: var(--tick);
+}
+
+.key-count {
+  font-family: var(--face-action);
+  font-size: var(--size-label);
+  fill: var(--ink);
+}
+
+.key-dot-button {
+  cursor: pointer;
+}
+
+/* A link: mono, underlined, in the action colour. Every action but the main one is a link. */
 .act {
   font-family: var(--face-action);
   font-size: var(--size-meta);
   color: var(--action);
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
   background: none;
   border: 0;
+  border-radius: 2px;
   padding: 0 2px;
   margin: 0;
   min-height: 24px;
   min-width: 24px;
   display: inline-flex;
   align-items: center;
+  text-align: left;
   cursor: pointer;
 }
 
 .act:hover {
-  text-decoration-style: solid;
+  text-decoration-thickness: 2px;
 }
 
-/* A panel button: the same speaker, 32 px tall, bordered in hairline. */
-.act-button {
-  min-height: 32px;
-  padding: 0 var(--s3);
-  border: 0.5px solid var(--hairline);
-  border-radius: 2px;
-  background: var(--card);
+.act:disabled {
+  color: var(--quiet);
+  cursor: default;
   text-decoration: none;
 }
 
-/* The answer you picked: the action colour, and the word "picked" for anyone who cannot see it. */
-.act[aria-pressed="true"] {
-  border-color: var(--action);
-  border-width: 1px;
-  color: var(--action);
-}
-
-/* The key chip: the key's hue behind ink, the key always named in words. */
-.key-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 var(--s2);
+/* The one filled button a screen may have: its main action. */
+.act-fill {
+  font-family: var(--face-action);
+  font-size: var(--size-meta);
+  font-weight: 500;
+  color: var(--on-action);
+  background: var(--action);
+  border: 0;
   border-radius: 2px;
-  font-family: var(--face-record);
-  font-size: var(--size-label);
-  color: var(--ink);
-  background: var(--chip-light, transparent);
-  border: 0.5px solid var(--hairline);
+  padding: 0 var(--s4);
+  margin: 0;
+  min-height: 44px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-@media (prefers-color-scheme: dark) {
-  .key-chip {
-    background: var(--chip-dark, transparent);
-  }
+/* One answer among several: a link, 32 px tall. The answer picked is a flat tag in the ground's tone. */
+.choice {
+  min-height: 32px;
+}
+
+.choice[aria-pressed="true"] {
+  background: var(--ground);
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0 var(--s2);
+}
+
+/* A reading is a long question; it wraps. */
+.choice.reading {
+  white-space: normal;
+  line-height: 1.4;
+  padding-top: var(--s1);
+  padding-bottom: var(--s1);
+  width: 100%;
+}
+
+.choice.reading[aria-pressed="true"] {
+  padding: var(--s1) var(--s2);
 }
 
 .rule {
@@ -230,7 +352,7 @@ body {
 /* ---- Screens ------------------------------------------------------------------------------- */
 
 .stack-lg > * + * {
-  margin-top: var(--s4);
+  margin-top: var(--s3);
 }
 
 /* The product speaking at body size: offers, readings on the note, questions to think with. */
@@ -239,7 +361,7 @@ body {
   font-weight: 500;
   font-optical-sizing: auto;
   font-size: var(--size-body);
-  line-height: 1.45;
+  line-height: 1.55;
   color: var(--ink);
   margin: 0;
 }
@@ -261,11 +383,18 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2) var(--s3);
+  gap: var(--s2) var(--s4);
 }
 
 .chip-row {
-  gap: var(--s2);
+  gap: var(--s2) var(--s3);
+}
+
+.between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
 }
 
 .choices {
@@ -279,22 +408,7 @@ body {
   margin-bottom: var(--s2);
 }
 
-/* A reading is a long question; it wraps inside its button. */
-.act-button.reading {
-  text-align: left;
-  white-space: normal;
-  line-height: 1.4;
-  padding: var(--s2) var(--s3);
-  width: 100%;
-}
-
-.act:disabled {
-  color: var(--quiet);
-  cursor: default;
-  text-decoration: none;
-}
-
-/* The line can be tapped for its proof; it keeps the product's face, and "The proof" beside it is the visible action. */
+/* The line can be tapped for its proof; it keeps the product's face, and the link beside it is the visible action. */
 .line-button {
   background: none;
   border: 0;
@@ -303,13 +417,14 @@ body {
   cursor: pointer;
 }
 
+/* Where the person types: the card's own tone, edged in quiet ink so the box can be found. */
 .field,
 .words-box {
   width: 100%;
   font-size: var(--size-body);
   color: var(--ink);
   background: var(--card);
-  border: 0.5px solid var(--hairline);
+  border: 1px solid var(--quiet);
   border-radius: 2px;
   padding: var(--s2) var(--s3);
   min-height: 32px;
@@ -334,8 +449,8 @@ body {
 }
 
 .evidence {
-  padding-left: var(--s3);
-  border-left: 0.5px solid var(--hairline);
+  padding-top: var(--s2);
+  border-top: 0.5px solid var(--hairline);
 }
 
 .example-tag {
@@ -345,14 +460,16 @@ body {
   margin-right: var(--s1);
 }
 
+/* A place to drop a file. */
 .drop {
-  border-style: dashed;
-  border-left-style: dashed;
+  outline: 1px dashed var(--quiet);
+  outline-offset: -6px;
   text-align: left;
 }
 
 .drop-over {
-  border-color: var(--action);
+  outline: 2px dashed var(--ink);
+  outline-offset: -6px;
 }
 
 .visually-hidden {
@@ -399,5 +516,6 @@ body {
 }
 
 .example-controls {
-  border-style: dashed;
+  outline: 1px dashed var(--quiet);
+  outline-offset: -6px;
 }

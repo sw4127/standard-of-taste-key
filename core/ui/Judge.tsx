@@ -37,7 +37,7 @@ function LineToJudge<T extends string>({ line, options, value, onPick }: { line:
       {line.gloss && <p className="record">{line.gloss}</p>}
       <div className="chip-row" role="group" aria-label="Your answer">
         {options.map((o) => (
-          <button key={o} type="button" className="act act-button" aria-pressed={value === o} onClick={() => onPick(o)}>
+          <button key={o} type="button" className="act choice" aria-pressed={value === o} onClick={() => onPick(o)}>
             {o}
           </button>
         ))}
@@ -55,7 +55,7 @@ function PersonPicker({ label, people, value, onPick, st }: { label: string; peo
     <div className="chip-row" role="group" aria-label={label}>
       <span className="label">{label}</span>
       {people.map((p) => (
-        <button key={p} type="button" className="act act-button" aria-pressed={value === p} onClick={() => onPick(p)}>
+        <button key={p} type="button" className="act choice" aria-pressed={value === p} onClick={() => onPick(p)}>
           {p === ME ? "Me" : nameOf(st, p)}
         </button>
       ))}
@@ -85,7 +85,7 @@ export function Judge() {
   // The swap test first, on its own: check A lists the person's own lines, which would give it away.
   const [tab, setTab] = useState<"swap" | "check-a" | null>(null);
 
-  if (!st.ready) return <p className="meta" role="status">Reading what this browser keeps…</p>;
+  if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
 
   const shown = tab ?? (second ? "swap" : "check-a");
   const mine = byPerson[checkOwner] ?? [];
@@ -104,34 +104,38 @@ export function Judge() {
 
   return (
     <section className="stack-lg">
+      <div className="card stack">
       <p className="line">Judge these lines</p>
       {hasHistories && (
         <div className="chip-row" role="group" aria-label="Which lines">
-          <button type="button" className="act act-button" aria-pressed={src === "named songs"} onClick={() => setSource("named songs")}>
+          <button type="button" className="act choice" aria-pressed={src === "named songs"} onClick={() => setSource("named songs")}>
             Lines across named songs
           </button>
-          <button type="button" className="act act-button" aria-pressed={src === "look-back"} onClick={() => setSource("look-back")}>
+          <button type="button" className="act choice" aria-pressed={src === "look-back"} onClick={() => setSource("look-back")}>
             Look-back lines
           </button>
         </div>
       )}
       <div className="chip-row" role="group" aria-label="Which test">
-        <button type="button" className="act act-button" aria-pressed={shown === "swap"} onClick={() => setTab("swap")}>
+        <button type="button" className="act choice" aria-pressed={shown === "swap"} onClick={() => setTab("swap")}>
           The swap test
         </button>
-        <button type="button" className="act act-button" aria-pressed={shown === "check-a"} onClick={() => setTab("check-a")}>
+        <button type="button" className="act choice" aria-pressed={shown === "check-a"} onClick={() => setTab("check-a")}>
           Check your lines
         </button>
       </div>
       {second && <p className="meta">Do the swap test first. Checking your lines shows whose lines are whose.</p>}
       {src === "look-back" && <p className="meta">Look-back lines here use the most recent full three months (one calendar quarter) in each file.</p>}
+      </div>
 
       {shown === "check-a" && (
         <>
-          <p className="label">Check your lines: each line gets one answer, from the person it&#39;s about</p>
-          <PersonPicker label="Whose lines" people={withLines} value={checkOwner} onPick={setAPerson} st={st} />
+          <div className="card stack">
+            <p className="label">Check your lines: each line gets one answer, from the person it&#39;s about</p>
+            <PersonPicker label="Whose lines" people={withLines} value={checkOwner} onPick={setAPerson} st={st} />
+          </div>
           {mine.length === 0 ? (
-            <p className="record">
+            <p className="card record">
               No lines yet. {src === "named songs" ? <Go to="songs">Name a few songs</Go> : <Go to="look-back">Look back over your plays</Go>}
             </p>
           ) : (
@@ -164,18 +168,20 @@ export function Judge() {
 
       {shown === "swap" && (
         <>
-          <p className="label">The swap test: lines from two people, mixed. Can you spot yours?</p>
           {!first || !second ? (
-            <p className="record">
+            <p className="card record">
               {src === "named songs"
                 ? "The swap test needs a second person with three or more songs. On the songs page, use “Add someone else's songs”."
                 : "The swap test needs a second person's Spotify file. In the look back, use “Read another file”."}
             </p>
           ) : (
             <>
-              <PersonPicker label="Mixed with" people={withLines.filter((p) => p !== first)} value={second} onPick={setOtherId} st={st} />
-              <PersonPicker label="Who is answering?" people={[first, second]} value={judge} onPick={setJudgeId} st={st} />
-              <p className="record">You won&#39;t see whose line is whose. For each one: is it yours?</p>
+              <div className="card stack">
+                <p className="label">The swap test: lines from two people, mixed. Can you spot yours?</p>
+                <PersonPicker label="Mixed with" people={withLines.filter((p) => p !== first)} value={second} onPick={setOtherId} st={st} />
+                <PersonPicker label="Who is answering?" people={[first, second]} value={judge} onPick={setJudgeId} st={st} />
+                <p className="record">You won&#39;t see whose line is whose. For each one: is it yours?</p>
+              </div>
               <ul className="plain stack">
                 {mixed.map((m) => (
                   <LineToJudge

@@ -21,7 +21,7 @@ export function MyNumbers() {
   const st = useStore();
   useEffect(() => void hydrate(), []);
   const [includeOthers, setIncludeOthers] = useState(false);
-  if (!st.ready) return <p className="meta" role="status">Reading what this browser keeps…</p>;
+  if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
   const times = songTimes(st.events, st.plays);
   const later = laterPlayed(st.nexts, st.plays);
   const people = others(st);
@@ -38,11 +38,13 @@ export function MyNumbers() {
 
   return (
     <section className="stack-lg">
-      <p className="line">My numbers</p>
-      <p className="record">For each song you played with the panel open: seconds from the song's start until its line was ready, was shown, and was first acted on.</p>
+      <div className="card stack">
+        <p className="line">My numbers</p>
+        <p className="record">For each song you played with the panel open: seconds from the song's start until its line was ready, was shown, and was first acted on.</p>
+      </div>
 
       {times.length === 0 ? (
-        <p className="record">No songs played with the panel open yet.</p>
+        <p className="card record">No songs played with the panel open yet.</p>
       ) : (
         <ul className="plain stack">
           {times.map((t) => (

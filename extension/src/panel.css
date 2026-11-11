@@ -1,21 +1,8 @@
-/* The side panel is 320–400 px wide; the card fills it with a 16 px gutter. */
+/* The side panel is 320–400 px wide: one column of cards on the ground, with a 16 px gutter. The foot follows the
+   last card; it is never pinned to the bottom of a tall panel (change request 11). */
 .panel {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.panel-head {
-  padding: var(--s4) var(--s4) 0;
-  min-height: 40px;
-}
-
-.panel-body {
-  flex: 1;
-  padding: var(--s3) var(--s4) var(--s4);
-}
-
-.panel-foot {
-  padding: var(--s3) var(--s4) var(--s4);
-  border-top: 0.5px solid var(--hairline);
+  gap: var(--s3);
+  padding: var(--s4);
 }

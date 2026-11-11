@@ -3,11 +3,11 @@ import "@sot/core/design/cardstock.css";
 import "./panel.css";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { EraseEverything, PrivacyLine } from "@sot/core/ui/Footer";
+import { PanelFoot, PanelHead } from "@sot/core/ui/Chrome";
 import { Judge } from "@sot/core/ui/Judge";
 import { MyNumbers } from "@sot/core/ui/MyNumbers";
 import { LookBack } from "@sot/core/ui/LookBack";
-import { Go, NavContext, type View } from "@sot/core/ui/nav";
+import { NavContext, type View } from "@sot/core/ui/nav";
 import { NowPlaying } from "@sot/core/ui/NowPlaying";
 import { PanelHome } from "@sot/core/ui/PanelHome";
 import { useLivePage } from "./live";
@@ -31,24 +31,12 @@ function Panel() {
   return (
     <NavContext.Provider value={{ go: setView }}>
       <div className="panel">
-        <header className="panel-head">
-          {view === "home" ? (
-            <p className="label">The Key</p>
-          ) : (
-            <button type="button" className="act" onClick={() => setView("home")}>
-              ← The Key
-            </button>
-          )}
-        </header>
+        <PanelHead atHome={view === "home"} onHome={() => setView("home")} />
         <main className="panel-body stack-lg">
           {view === "home" && live?.facts && <NowPlaying live={{ ...live, facts: live.facts }} />}
           {view === "home" ? <PanelHome playing={!!live?.facts} /> : SCREENS[view]()}
         </main>
-        <footer className="panel-foot stack">
-          <PrivacyLine />
-          <Go to="numbers">My numbers and export</Go>
-          <EraseEverything />
-        </footer>
+        <PanelFoot />
       </div>
     </NavContext.Provider>
   );

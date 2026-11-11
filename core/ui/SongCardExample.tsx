@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import { EXAMPLE_FRIEND, EXAMPLE_PANEL_SONG as SONG } from "../src/examples";
-import { edgeStyle, KeyChip } from "./KeyChip";
+import { edgeClass, edgeStyle, KeyChip } from "./KeyChip";
 import { ExampleLabel, Go } from "./nav";
 
 const FIRST_PLAY_WAIT = 60;
@@ -37,7 +37,7 @@ export function SongCardExample() {
     <section className="stack-lg">
       <ExampleLabel>A made-up song and a made-up friend, to show how a song card behaves.</ExampleLabel>
 
-      <article className="card stack" style={read ? edgeStyle(SONG.key) : {}}>
+      <article className={`card stack${read ? edgeClass(SONG.key) : ""}`} style={read ? edgeStyle(SONG.key) : {}}>
         <p className="meta" aria-live="polite">
           {!playing && heard === 0 ? "Waiting for a video to play." : read ? `${SONG.title} · ${SONG.artist_credit}` : "Reading this video…"}
         </p>
@@ -89,10 +89,10 @@ export function SongCardExample() {
           Heard {mmss(heard)} of this song. On a first play the line waits until {mmss(FIRST_PLAY_WAIT)} heard; on a song you have played before, until 0:15.
         </p>
         <div className="row">
-          <button type="button" className="act act-button" onClick={() => setPlaying((p) => !p)}>
+          <button type="button" className="act choice" onClick={() => setPlaying((p) => !p)}>
             {playing ? "Pause" : heard ? "Resume" : "Play"}
           </button>
-          <button type="button" className="act act-button" disabled={!playing} onClick={() => setHeard((h) => h + 15)}>
+          <button type="button" className="act choice" disabled={!playing} onClick={() => setHeard((h) => h + 15)}>
             Skip ahead 15 s
           </button>
           <button

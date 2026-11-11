@@ -24,7 +24,10 @@ export function PanelHome({ playing = false }: { playing?: boolean }) {
       </article>}
       <article className="card stack">
         <p className="voice">Or name a few songs that come to mind.</p>
-        <Go to="songs">Name songs</Go>
+        <Go to="songs" className="act-fill">
+          <span>Name songs</span>
+          <span aria-hidden="true">→</span>
+        </Go>
       </article>
       <article
         className={`card stack${over ? " drop-over" : ""}`}
@@ -43,9 +46,9 @@ export function PanelHome({ playing = false }: { playing?: boolean }) {
         <Go to="look-back">Look back over your plays</Go>
       </article>
       {noteAvailable(st.choices, st.words) && (
-        <p>
+        <article className="card">
           <Go to="note">Your taste in words, so far</Go>
-        </p>
+        </article>
       )}
     </section>
   );

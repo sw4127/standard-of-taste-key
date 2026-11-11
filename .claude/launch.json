@@ -13,6 +13,12 @@
       "runtimeArgs": ["web/scripts/serve.mjs"],
       "env": { "PORT": "3212", "ROOT": "extension/dist" },
       "port": 3212
+    },
+    {
+      "name": "checks",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--config", "checks/vite.config.ts"],
+      "port": 3214
     }
   ]
 }

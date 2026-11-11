@@ -13,6 +13,7 @@ import type { LivePage, PageFacts, PlayRow, SongFacts } from "../src/model";
 import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
 import { recordingFacts } from "../src/sources/recording";
+import { edgeClass, edgeStyle } from "./KeyChip";
 import { SongWords } from "./SongWords";
 import { actions, getState, hydrate, useStore } from "./store";
 
@@ -163,7 +164,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
   const candidates = status.kind === "match" && status.result ? status.result.candidates : [];
 
   return (
-    <article className="card stack">
+    <article className={`card stack${known ? edgeClass(st.facts[row!.recording_id]?.key) : ""}`} style={known ? edgeStyle(st.facts[row!.recording_id]?.key) : {}}>
       <p className="label">Playing on Bilibili</p>
       <p className="meta">{f.page_title}</p>
       {status.kind === "reading" && !known && (
@@ -172,10 +173,11 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
         </p>
       )}
       {known && (
-        <p className="line" role="status">
-          {row!.song_title} · {row!.song_artist}
-          {row!.match_state === "fixed by me" && <span className="meta"> (your pick)</span>}
-        </p>
+        <div role="status" className="stack">
+          <p className="song-title">{row!.song_title}</p>
+          <p className="artist">{row!.song_artist}</p>
+          {row!.match_state === "fixed by me" && <p className="meta">This recording is your pick.</p>}
+        </div>
       )}
       {row?.match_state === "not a song" && (
         <p className="record" role="status">
