@@ -18,7 +18,8 @@ let pendingSince = 0;
 const newToken = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 let token = newToken();
 
-const snapshot = (): LiveMessage => ({ type: "key:page", facts, play_token: token, heard_seconds: Math.floor(clock.heard), playing, ended: clock.ended });
+const duration = () => (media && Number.isFinite(media.duration) && media.duration > 0 ? Math.round(media.duration) : undefined);
+const snapshot = (): LiveMessage => ({ type: "key:page", facts, play_token: token, heard_seconds: Math.floor(clock.heard), playing, ended: clock.ended, duration_seconds: duration() });
 
 function send() {
   // The panel may be closed: then nobody listens, and that is fine.

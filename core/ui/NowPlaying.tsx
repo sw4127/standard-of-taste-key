@@ -1,14 +1,15 @@
 "use client";
 /**
  * The panel beside a Bilibili video (moment map P-2, P-3; T1.2–T1.4). The status line names the song
- * at once when rule v6 is certain; when it is silent, "I can't tell which recording this is" with "Fix",
+ * at once when rule v7 is certain; when it is silent, one line says why (FR-CORE-1 v7, step 5), with "Fix",
  * and no line about the song. "Fix" lists up to eight recordings and "Not a song"; one tap picks, and
  * every later play of the same video uses the pick. Each play is kept in D1 with its seconds heard.
  * A matched song's credits and facts are fetched at once (T2.1) and its words follow (SongWords).
  */
 import { useEffect, useRef, useState } from "react";
 import { normalise } from "../src/match/studio";
-import { matchTitle, RULE_VERSION, type Candidate, type MatchResult } from "../src/match/v6";
+import { fixFor, fixTyped, type FixList as FixListData, type FixRow } from "../src/match/fix";
+import { matchTitle, RULE_VERSION, silenceLine, type Candidate, type MatchResult } from "../src/match/v7";
 import type { LivePage, PageFacts, PlayRow, SongFacts } from "../src/model";
 import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
@@ -72,6 +73,9 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
   const [status, setStatus] = useState<Status>({ kind: "reading" });
   const [fixing, setFixing] = useState(false);
   const play = useRef<PlayRow | null>(null);
+  /** The play as it was before the last pick, so that "Undo" can put it back. */
+  const beforePick = useRef<PlayRow | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
   const savedHeard = useRef(0);
 
   // A new viewing: one play, matched by the rule unless the person fixed this video before. A panel
@@ -81,6 +85,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     if (!st.ready) return; // the plays kept in this browser come first: a fix may already hold
     let gone = false;
     setFixing(false);
+    setCanUndo(false);
+    beforePick.current = null;
     const { row: again, sameTitle } = viewingFor(st.plays, live.play_token, f.page_title);
     if (again && sameTitle) {
       play.current = again;
@@ -149,6 +155,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
   const row = st.plays.find((p) => p.play_id === play.current?.play_id) ?? play.current;
   const pick = (c: Candidate | "not a song") => {
     if (!row) return;
+    beforePick.current = row;
     const next: PlayRow =
       c === "not a song"
         ? { ...row, match_state: "not a song", recording_id: "", song_title: undefined, song_artist: undefined }
@@ -158,10 +165,22 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     void actions.savePlay(next);
     actions.log("match_fixed", { play_id: next.play_id, value: next.match_state });
     setFixing(false);
+    setCanUndo(true);
+  };
+
+  const undo = () => {
+    const back = beforePick.current;
+    if (!back || !row || back.play_id !== row.play_id) return;
+    // Seconds heard since the pick are kept; only the pick itself is taken back.
+    const next: PlayRow = { ...back, heard_seconds: Math.max(back.heard_seconds, row.heard_seconds), reached_end: row.reached_end };
+    play.current = next;
+    void actions.savePlay(next);
+    actions.log("match_fixed", { play_id: next.play_id, value: "undone" });
+    beforePick.current = null;
+    setCanUndo(false);
   };
 
   const known = row && (row.match_state === "certain" || row.match_state === "fixed by me") && row.song_title;
-  const candidates = status.kind === "match" && status.result ? status.result.candidates : [];
 
   return (
     <article className={`card stack${known ? edgeClass(st.facts[row!.recording_id]?.key) : ""}`} style={known ? edgeStyle(st.facts[row!.recording_id]?.key) : {}}>
@@ -176,31 +195,44 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
         <div role="status" className="stack">
           <p className="song-title">{row!.song_title}</p>
           <p className="artist">{row!.song_artist}</p>
-          {row!.match_state === "fixed by me" && <p className="meta">This recording is your pick.</p>}
+          {row!.match_state === "fixed by me" && (
+            <p className="meta">
+              This recording is your pick.{" "}
+              {canUndo && beforePick.current?.play_id === row!.play_id && (
+                <button type="button" className="act" onClick={undo}>
+                  Undo
+                </button>
+              )}
+            </p>
+          )}
         </div>
       )}
       {row?.match_state === "not a song" && (
         <p className="record" role="status">
-          Not a song, as you said.
+          Not a song, as you said.{" "}
+          {canUndo && beforePick.current?.play_id === row.play_id && (
+            <button type="button" className="act" onClick={undo}>
+              Undo
+            </button>
+          )}
         </p>
       )}
       {status.kind !== "reading" && !known && row?.match_state !== "not a song" && (
         <p className="record" role="status">
-          I can&#39;t tell which recording this is.
-          {status.kind === "unreachable" && " Couldn't reach MusicBrainz."}
+          {status.kind === "unreachable"
+            ? "I couldn't reach MusicBrainz, so this song is not named."
+            : status.kind === "match" && status.result
+              ? silenceLine(status.result)
+              : "No song is named for this video."}
         </p>
       )}
       {status.kind !== "reading" && (
         <button type="button" className="act" aria-expanded={fixing} onClick={() => setFixing((x) => !x)}>
-          {fixing ? "Close" : "Fix"}
+          {fixing ? "Close the list" : known ? "Not this recording? Fix" : "Fix"}
         </button>
       )}
       {fixing && (
-        <FixList
-          title={f.page_title}
-          initial={candidates}
-          onPick={pick}
-        />
+        <FixList title={f.page_title} videoSeconds={live.duration_seconds} onPick={pick} />
       )}
       {known && row && st.facts[row.recording_id] && (
         <SongWords key={`${row.play_id}:${row.recording_id}`} song={st.facts[row.recording_id]!} play={row} heard={live.heard_seconds} />
@@ -209,27 +241,81 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
   );
 }
 
-/** FR-T1.4: up to eight recordings (title, artist, first release, record), and "Not a song". */
-function FixList({ title, initial, onPick }: { title: string; initial: Candidate[]; onPick: (c: Candidate | "not a song") => void }) {
-  const [list, setList] = useState<Candidate[] | null>(initial.length ? initial : null);
-  useEffect(() => {
-    if (list) return;
-    // A play matched from an earlier pick has no candidates yet: search once.
-    matchTitle(title, { fetchFn }).then((r) => setList(r.candidates), () => setList([]));
-  }, [list, title]);
+/** One row of the Fix list: what the recording is in plain words, then its facts; one tap keeps it. */
+function FixRowButton({ row, onPick }: { row: FixRow; onPick: (c: Candidate) => void }) {
   return (
-    <div className="stack">
-      {list === null && <p className="meta" role="status">Looking in MusicBrainz…</p>}
-      {list && list.length === 0 && <p className="meta">MusicBrainz has no recording matching this title.</p>}
-      {list && list.length > 0 && (
-        <ul className="plain stack" aria-label="Recordings to pick from">
-          {list.slice(0, 8).map((c) => (
-            <li key={c.recording_id}>
-              <button type="button" className="act" onClick={() => onPick(c)}>
-                {c.title} · {c.artist_credit} · {c.first_release ?? "date not listed"}
-                {c.record ? ` · ${c.record}` : ""}
-              </button>
-            </li>
+    <li>
+      <button type="button" className="act fix-row" onClick={() => onPick(row.candidate)}>
+        <span className="fix-label">
+          {row.label}
+          {row.sameLength ? " · same length as this video" : ""}
+        </span>
+        <span className="fix-facts">{row.facts.join(" · ")}</span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * FR-T1.4 (as replaced 2026-11-10): the studio original by the artist read from the title comes first;
+ * every other row says what it is; other artists' songs appear only under their own heading; a box
+ * searches by typing; "Not a song" stays one tap away.
+ */
+function FixList({ title, videoSeconds, onPick }: { title: string; videoSeconds?: number; onPick: (c: Candidate | "not a song") => void }) {
+  const [list, setList] = useState<FixListData | null | "unreachable">(null);
+  const [typed, setTyped] = useState("");
+  const [found, setFound] = useState<FixRow[] | null | "looking" | "unreachable">(null);
+  useEffect(() => {
+    let gone = false;
+    setList(null);
+    fixFor(title, { fetchFn }, videoSeconds).then((l) => !gone && setList(l), () => !gone && setList("unreachable"));
+    return () => {
+      gone = true;
+    };
+  }, [title]); // eslint-disable-line react-hooks/exhaustive-deps
+  const search = () => {
+    if (typed.trim().length < 2) return;
+    setFound("looking");
+    fixTyped(typed, { fetchFn }, videoSeconds).then(setFound, () => setFound("unreachable"));
+  };
+  return (
+    <div className="stack evidence">
+      {list === null && <p className="meta" role="status">Looking in MusicBrainz.</p>}
+      {list === "unreachable" && <p className="meta" role="status">I couldn&#39;t reach MusicBrainz. You can still type the song below.</p>}
+      {list && list !== "unreachable" && list.rows.length === 0 && <p className="meta">MusicBrainz has no recording under this title.</p>}
+      {list && list !== "unreachable" && list.rows.length > 0 && (
+        <>
+          <p className="label">{list.heading ?? "Recordings to pick from"}</p>
+          {list.heading && <p className="meta">MusicBrainz has no recording of this title by the artist named in the video&#39;s title. These are other artists&#39; songs with the same title.</p>}
+          <ul className="plain stack" aria-label={list.heading ?? "Recordings to pick from"}>
+            {list.rows.map((r) => (
+              <FixRowButton key={r.candidate.recording_id} row={r} onPick={onPick} />
+            ))}
+          </ul>
+        </>
+      )}
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          search();
+        }}
+      >
+        <label className="label" htmlFor="fix-typed">
+          Type the song and the artist
+        </label>
+        <input id="fix-typed" className="field" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+        <button type="submit" className="act" disabled={typed.trim().length < 2}>
+          Search MusicBrainz
+        </button>
+      </form>
+      {found === "looking" && <p className="meta" role="status">Looking in MusicBrainz.</p>}
+      {found === "unreachable" && <p className="meta" role="status">I couldn&#39;t reach MusicBrainz. Try again in a moment.</p>}
+      {Array.isArray(found) && found.length === 0 && <p className="meta" role="status">MusicBrainz has no recording matching what you typed.</p>}
+      {Array.isArray(found) && found.length > 0 && (
+        <ul className="plain stack" aria-label="Recordings found for what you typed">
+          {found.map((r) => (
+            <FixRowButton key={r.candidate.recording_id} row={r} onPick={onPick} />
           ))}
         </ul>
       )}

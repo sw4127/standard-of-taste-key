@@ -115,6 +115,8 @@ export interface LivePage {
   heard_seconds: number;
   playing: boolean;
   ended: boolean;
+  /** The video's own length in seconds, read from the page's player, when it has one (FR-T1.4: "same length as this video"). */
+  duration_seconds?: number;
 }
 
 /** D5 Keys: every line shown on the panel, with what the person did with it (T2.2–T2.6). */
