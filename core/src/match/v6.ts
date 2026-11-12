@@ -37,7 +37,9 @@ export type Silence =
   | "no studio recording"
   | "different artists"
   | "only clean edits"
-  | "versions months apart";
+  | "versions months apart"
+  /** Version 7: a recording by a named artist exists, but its credit does not fit the names in the title. */
+  | "credits differ";
 
 export interface Candidate {
   recording_id: string;

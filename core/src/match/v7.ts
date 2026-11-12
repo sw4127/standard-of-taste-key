@@ -20,7 +20,7 @@ import { parseTitle, stripNotes, type Parsed } from "./parse";
 import { hasVersionWord, normalise, type MbRecording } from "./studio";
 import { decide, fetchFor, GENERIC_TITLES, settle, toCandidate, type MatchDeps, type MatchResult } from "./v6";
 
-export const RULE_VERSION = "v7.0";
+export const RULE_VERSION = "v7.1";
 export type { Candidate, MatchDeps, MatchResult, Silence } from "./v6";
 
 /** Step 1: full-width punctuation read as its half-width twin. 《》 and 【】 are left as they are. */
@@ -98,6 +98,9 @@ export function stands(name: string, outside: string): boolean {
   if (hasCjk(name)) {
     return outside.split(/[\s,/&、|]+/).some((part) => normalise(part).includes(n));
   }
+  // A name written with or without its hyphen or dots ("PattyCake", "Patty-Cake") stands when one
+  // whole word of the title, punctuation removed, is the name: the comparison version 6.3 made.
+  if (outside.split(/[\s,/&、|()]+/).some((w) => normalise(w) === n)) return true;
   const want = tokens(name);
   const have = tokens(outside);
   if (!want.length) return false;
@@ -126,6 +129,38 @@ export function noUnnamedCoArtist(r: MbRecording, book: Book): boolean {
   const text = `${book.outside} ${book.track}`;
   return credit.every((a, i) => (i > 0 && GUEST.test(credit[i - 1]!.joinphrase ?? "")) || namesOf(a).some((n) => stands(n, text)));
 }
+
+/**
+ * The names standing together in each stretch of the title outside the 《》: stretches are cut at a
+ * dash or a divider, names inside one at a comma, &, 、, / or feat. "- 澤野弘之,R!N⁄Gemie -" is one
+ * stretch of two names; "百万级装备听 - Glass Animals" is two stretches of one name each.
+ */
+export function nameGroups(outside: string): string[][] {
+  return outside
+    .split(/\s*(?:\||\s[-–—]+\s?|\s?[-–—]+\s)\s*/)
+    .map((seg) => seg.split(/\s*(?:&|、|,|\/|\sx\s|\sfeat\.?\s|\sft\.?\s)\s*/i).map((x) => x.trim()).filter((x) => [...x.replace(/\s/g, "")].length >= 2))
+    .filter((g) => g.length > 0);
+}
+
+/**
+ * Re-run of the coverage bar, 2026-11-12: "《Call your name》- 澤野弘之,R!N⁄Gemie" was named as a piano
+ * version credited to 澤野弘之 alone. When the title names several artists together and the recording
+ * is credited to one of them alone, it is another version, and the rule stays silent.
+ */
+export function creditCoversGroup(r: MbRecording, book: Book): boolean {
+  const credit = r["artist-credit"] ?? [];
+  for (const g of nameGroups(book.outside)) {
+    if (g.length < 2) continue;
+    const ours = credit.some((a) => namesOf(a).some((n) => g.some((part) => stands(n, part))));
+    // Only a recording credited to one artist alone is refused: a title that adds a series or a label
+    // to a duet ("国风新语&浮生梦&汐音社《探窗》", credited 浮生梦 & 汐音社) still names the song.
+    if (ours && credit.length === 1) return false;
+  }
+  return true;
+}
+
+/** Both credit checks: no co-credited artist the title leaves out, and none of the title's named artists left out. */
+export const creditFits = (r: MbRecording, book: Book) => noUnnamedCoArtist(r, book) && creditCoversGroup(r, book);
 
 /** A recording's title against the track: equal as written (notes stripped), or equal with brackets that name no version dropped. */
 export function sameTitle(recordingTitle: string, forms: string[], loose = true): boolean {
@@ -170,6 +205,13 @@ export function searchesV7(book: Book): string[] {
   return [...new Set(out)];
 }
 
+/** The last search, sent only when the others found nothing: the track by the names read, with no release filter. */
+export function lastSearchV7(book: Book): string | null {
+  const names = outsideParts(book.outside).slice(0, MAX_NAMES);
+  if (!names.length) return null;
+  return `recording:"${esc(trackForms(book.track).at(-1)!)}" AND (${names.map((n) => `artist:"${esc(n)}"`).join(" OR ")})`;
+}
+
 export const searchUrlV7 = (q: string) => `${MB}/recording?query=${encodeURIComponent(q)}&limit=100&fmt=json`;
 
 /** The new part of the rule, over recordings already fetched: pure, so fixtures can replay it. */
@@ -178,14 +220,41 @@ export function decideV7(parsed: Parsed, book: Book, found: MbRecording[]): Matc
   const all = [...byId.values()];
   const forms = trackForms(book.track);
   if (forms.every((f) => GENERIC_TITLES.has(normalise(f)))) return { state: "silent", reason: "a generic title", candidates: all.slice(0, 8).map(toCandidate), parsed };
-  const mayBe = all.filter((r) => (r.score ?? 0) >= 85 && artistStands(r, book.outside) && noUnnamedCoArtist(r, book));
+  const mayBe = all.filter((r) => (r.score ?? 0) >= 85 && artistStands(r, book.outside) && creditFits(r, book));
   // A recording whose title is the track as written comes first. Only when there is none does a title
   // with a bracket that names no version count ("Sunflower (Spider-Man: Into the Spider-Verse)"); so
   // "Heat Waves (stripped back)" never stands beside "Heat Waves".
   const exact = mayBe.filter((r) => sameTitle(r.title, forms, false));
   const c = exact.length ? exact : mayBe.filter((r) => sameTitle(r.title, forms));
-  if (!c.length) return { state: "silent", reason: "no candidate", candidates: all.slice(0, 8).map(toCandidate), parsed };
-  return settle(parsed, c, (r) => hasVersionWord(exact.length ? r.title : bare(r.title)));
+  if (!c.length) {
+    // A recording of the track by a named artist exists, and the credit checks refused it: the song may
+    // well be on MusicBrainz, so the card must not say it is not (FR-CORE-1 v7, step 5).
+    const refused = all.some((r) => (r.score ?? 0) >= 85 && artistStands(r, book.outside) && sameTitle(r.title, forms) && !creditFits(r, book));
+    return { state: "silent", reason: refused ? "credits differ" : "no candidate", candidates: all.slice(0, 8).map(toCandidate), parsed };
+  }
+  const settled = settle(parsed, c, (r) => hasVersionWord(exact.length ? r.title : bare(r.title)));
+  if (settled.state === "silent" && settled.reason === "no studio recording" && c.length === 1 && loneAndPlain(c[0]!)) {
+    const only = c[0]!;
+    return { state: "certain", recording: only, candidate: toCandidate(only), candidates: [toCandidate(only)], parsed };
+  }
+  return settled;
+}
+
+/**
+ * Re-run of the coverage bar, 2026-11-12: Violet (郑润泽) and 我走后 (小咪) are each held by MusicBrainz as
+ * one recording whose release has no status or no type filled in, so the studio rule could not see a
+ * studio release. When the only recording of the title by an artist standing in the title has no note,
+ * no version word, and no release marked live, remix, compilation, DJ-mix, demo, mixtape, bootleg or
+ * promotion, it is the song.
+ */
+export function loneAndPlain(r: MbRecording): boolean {
+  const rels = r.releases ?? [];
+  return (
+    !(r.disambiguation ?? "").trim() &&
+    !hasVersionWord(r.title) &&
+    rels.length > 0 &&
+    rels.every((x) => x.status !== "Bootleg" && x.status !== "Promotion" && x.status !== "Pseudo-Release" && !(x["release-group"]?.["secondary-types"] ?? []).length)
+  );
 }
 
 export async function fetchV7(book: Book, d: MatchDeps): Promise<MbRecording[]> {
@@ -195,8 +264,10 @@ export async function fetchV7(book: Book, d: MatchDeps): Promise<MbRecording[]> 
     const rs = await get(q);
     found.push(...rs);
     // Stop as soon as a search holds a recording that could be the song: fewer calls, sooner words.
-    if (rs.some((r) => (r.score ?? 0) >= 85 && sameTitle(r.title, trackForms(book.track)) && artistStands(r, book.outside))) break;
+    if (rs.some((r) => (r.score ?? 0) >= 85 && sameTitle(r.title, trackForms(book.track)) && artistStands(r, book.outside))) return found;
   }
+  const last = lastSearchV7(book);
+  if (last) found.push(...(await get(last)));
   return found;
 }
 
@@ -211,7 +282,10 @@ export async function matchTitle(title: string, d: MatchDeps): Promise<MatchResu
   const parsed = parseTitle(title);
   const book = readBook(title);
   const first = parsed.queries.length ? decide(parsed, await fetchFor(parsed, d)) : decide(parsed, []);
-  if (!book || first.state === "certain" || FINAL.has(first.reason)) return first;
+  if (!book) return first;
+  // Re-run of the coverage bar, 2026-11-12: 6.3 named a 2002 duet credited 成龍 VS 鄧麗君 for a title
+  // naming 邓丽君 alone. Its result now passes the same credit checks, or the new part decides.
+  if (first.state === "certain" ? creditFits(first.recording, book) : FINAL.has(first.reason)) return first;
   const second = decideV7(parsed, book, await fetchV7(book, d));
   // Keep 6.3's candidates for Fix when the new part found none of its own.
   return second.state === "silent" && !second.candidates.length ? { ...second, candidates: first.candidates } : second;

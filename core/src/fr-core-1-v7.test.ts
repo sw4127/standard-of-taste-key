@@ -125,7 +125,8 @@ describe("which recording, or silence", () => {
   });
   it("two lead artists who both stand in the title: silent", () => {
     const t = "《Glass Harbour》- Juniper Varga,Ottilie Sand";
-    expect(outcome(v7(t, [rec("a", "Glass Harbour", JV), rec("b", "Glass Harbour", [artist("Ottilie Sand")])]))).toBe("different artists");
+    // Each is credited alone while the title names both together: neither is named (re-run of 2026-11-12).
+    expect(v7(t, [rec("a", "Glass Harbour", JV), rec("b", "Glass Harbour", [artist("Ottilie Sand")])]).state).toBe("silent");
   });
   it("a generic title names no song; a search score under 85 is no candidate", () => {
     expect(outcome(v7("百万级装备听《Main Theme》- Juniper Varga", [rec("x", "Main Theme", JV)]))).toBe("a generic title");
@@ -251,11 +252,50 @@ describe("a co-credited artist the title does not name means another version", (
   const title = "久石让《Summer（菊次郎的夏天）》百万豪装录音棚大声听";
   it("a 2024 recording credited to the composer and an orchestra is refused when the title names only the composer", () => {
     const rerecording = r("2024", [{ ...jh, joinphrase: " & " }, orch], "2024-10-24");
-    expect(outcome(v7(title, [rerecording]))).toBe("no candidate");
+    expect(outcome(v7(title, [rerecording]))).toBe("credits differ");
     expect(outcome(v7(title, [rerecording, r("1999", [jh], "1999-05-26")]))).toBe("1999");
   });
   it("a featured guest the title leaves out does not refuse the recording", () => {
     const withGuest = r("feat", [{ ...jh, joinphrase: " feat. " }, orch], "2001-01-01");
     expect(outcome(v7(title, [withGuest]))).toBe("feat");
+  });
+});
+
+describe("re-run of the coverage bar, 2026-11-12: the credit must fit the names in the title", () => {
+  const duo = [{ ...artist("Juniper Varga"), joinphrase: " & " }, artist("Ottilie Sand")];
+  it("a recording credited to one artist alone, when the title names several together, is another version", () => {
+    const t = "《Glass Harbour》- Juniper Varga,Ottilie Sand -";
+    const solo = v7(t, [rec("solo", "Glass Harbour", [artist("Juniper Varga")])]);
+    expect(outcome(solo)).toBe("credits differ");
+    expect(silenceLine(solo)).toBe("I couldn't read this title."); // never "not on MusicBrainz": it is there
+    expect(outcome(v7(t, [rec("both", "Glass Harbour", duo)]))).toBe("both");
+  });
+  it("a title that adds a series name to a duet still names the duet", () => {
+    expect(outcome(v7("Lantern Series&Juniper Varga&Ottilie Sand《Glass Harbour》", [rec("both", "Glass Harbour", duo)]))).toBe("both");
+  });
+  it("a name written without its hyphen stands for the hyphenated word, and only for the whole word", () => {
+    expect(stands("PattyCake", "Patty-Cake 百万豪装录音棚大声听")).toBe(true);
+    expect(stands("DEN", "Pinewood Garden")).toBe(false);
+    // A hyphen still separates whole words: "Garden" stands in "Pinewood-Garden", "DEN" never does.
+    expect(stands("DEN", "Pinewood-Garden")).toBe(false);
+  });
+  it("version 6.3's own result must fit the credit too, or the new part decides (the 成龍 VS 鄧麗君 duet)", async () => {
+    const duet: MbRecording = { id: "duet", title: "Glass Harbour", score: 100, "artist-credit": [{ name: "Example Star", joinphrase: " VS ", artist: { id: "es", name: "Example Star" } }, { name: "Juniper Varga", artist: { id: "jv", name: "Juniper Varga" } }], releases: [{ id: "x", status: "Official", date: "2002-02", "release-group": { id: "g1", "primary-type": "Album" } }] };
+    const original = rec("original", "Glass Harbour", [artist("Juniper Varga")], [rel("1986-12-25")]);
+    const fetchFn = async (url: string) => {
+      const q = new URL(url).searchParams.get("query")!;
+      return { ok: true, status: 200, json: async () => ({ recordings: /status:official/.test(q) ? [duet, original] : [duet] }) };
+    };
+    const r = await matchTitle("Juniper Varga《Glass Harbour》百万豪装录音棚大声听", { fetchFn, gate: new Gate(0) });
+    expect(outcome(r)).toBe("original");
+  });
+  it("a lone recording whose release has no status or type is named only when nothing marks it as another version", () => {
+    const t = "《Glass Harbour》- Juniper Varga -";
+    const plain: MbRecording = { id: "plain", title: "Glass Harbour", score: 100, "artist-credit": [artist("Juniper Varga")], releases: [{ id: "x" }] };
+    expect(outcome(v7(t, [plain]))).toBe("plain");
+    expect(v7(t, [{ ...plain, disambiguation: "live" }]).state).toBe("silent");
+    expect(v7(t, [{ ...plain, releases: [{ id: "x", status: "Bootleg" }] }]).state).toBe("silent");
+    expect(v7(t, [{ ...plain, releases: [{ id: "x", "release-group": { id: "g", "secondary-types": ["Compilation"] } }] }]).state).toBe("silent");
+    expect(v7(t, [plain, { ...plain, id: "second" }]).state).toBe("silent"); // two recordings: not lone
   });
 });

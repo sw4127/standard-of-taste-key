@@ -2,13 +2,13 @@
 
 Uploader: VV音乐局. Copied by Bob on 2026-11-11. 83 videos, split in two by a seeded shuffle. This is the half the rule may be tuned on; it is not the bar.
 
-Named: 18 of 42. Silent: 24. Not run: 0.
+Named: 17 of 42. Silent: 25. Not run: 0.
 
 | # | Video title | What the rule did |
 |---|---|---|
 | 1 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《爱是不抵抗的盾》- SHarK -‘你是树下的阴影你也是光彩 是无论怎样也和这辈子相爱’ | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
 | 2 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《Hong Kong (feat. 王菲季候风)》- The Weeknd - | **Hong Kong · The Weeknd featuring 王菲季候風** · 2026-10-31 · Hong Kong · [recording](https://musicbrainz.org/recording/b0c897e3-e218-4b7b-90b8-0f617e5e5cce) |
-| 3 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《FIRESTARTER》- K⁄DA,英雄联盟,i-dle,Mimi Webb,Sophie Powers - | **FIRESTARTER · K/DA** · 2026-10-18 · FIRESTARTER · [recording](https://musicbrainz.org/recording/16bda263-969e-4a80-a648-f56ea9c34657) |
+| 3 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《FIRESTARTER》- K⁄DA,英雄联盟,i-dle,Mimi Webb,Sophie Powers - | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
 | 4 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《过渡期》- 小宇-宋念宇 -‘爱是痛的替代品 我是你的过渡期’ | **過渡期 · 小宇** · 2012-12-07 · 再一次 · [recording](https://musicbrainz.org/recording/4b62ed18-fc4f-4073-b9d9-647da46d9253) |
 | 5 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《満ちてゆく (心海渐满)》 - 藤井风 - | **満ちてゆく · 藤井風** · 2024-03-15 · Prema · [recording](https://musicbrainz.org/recording/5c8e18db-c686-40ca-9dd3-14d6008ce2ee) |
 | 6 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《天空之外》- 弦子 -‘自由和爱情 哪一个 会更难释怀’ | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
@@ -38,7 +38,7 @@ Named: 18 of 42. Silent: 24. Not run: 0.
 | 30 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《橘子酸sour orange》- 那艺娜 -‘感情像橘子吃到嘴里酸’ | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
 | 31 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《繁花》- 董真 -‘三千繁花只为你一人留恋’ | **繁花 · 董真** · 2017-01-09 · 電視劇《三生三世十里桃花》 · [recording](https://musicbrainz.org/recording/26984dea-f6d5-4467-878e-271b73f104da) |
 | 32 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《忘羡》- 吾恩,朱强 -‘十年梦未觉冷 原来 陈情俱是旧人’ | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
-| 33 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《背对背 (feat. scarletchoir)》- User116,scarletchoir - | silent (no studio recording): “I couldn't read this title.”<br>MusicBrainz holds: 背对背 · User116 (score 100) |
+| 33 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《背对背 (feat. scarletchoir)》- User116,scarletchoir - | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds: 背对背 · User116 (score 100) |
 | 34 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《宠爱吖》- 白小白,球球 -‘我的心早已被你宠坏 习惯你每天对我说着爱爱爱爱’ | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
 | 35 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《luv u 2》 - Seto - | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
 | 36 | 【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《北京没有你》- z阿康 -‘北京没有你我何必留在北京 我没那么爱你只是忘不了你’ | silent (no candidate): “This song is not on MusicBrainz.”<br>MusicBrainz holds nothing under this title and these names. |
