@@ -14,13 +14,14 @@
  * want of a candidate does the new part run. Everything 6.3 accepts on the artist, version 7 accepts
  * too: a name the title gives whole is also a credited name standing in the title.
  */
+import { fold } from "../checks";
 import { getJson } from "../sources/http";
 import { MB, mbGate, OFFICIAL } from "../sources/musicbrainz";
 import { parseTitle, stripNotes, type Parsed } from "./parse";
 import { hasVersionWord, normalise, type MbRecording } from "./studio";
 import { decide, fetchFor, GENERIC_TITLES, settle, toCandidate, type MatchDeps, type MatchResult } from "./v6";
 
-export const RULE_VERSION = "v7.1";
+export const RULE_VERSION = "v7.2";
 export type { Candidate, MatchDeps, MatchResult, Silence } from "./v6";
 
 /** Step 1: full-width punctuation read as its half-width twin. 《》 and 【】 are left as they are. */
@@ -117,7 +118,7 @@ export function namesOf(a: Credit): string[] {
 
 export const artistStands = (r: MbRecording, outside: string) => (r["artist-credit"] ?? []).some((a) => namesOf(a).some((n) => stands(n, outside)));
 
-const GUEST = /feat|ft\.|featuring|with.*guest/i;
+const GUEST = /feat|ft\.|featuring|\bwith\b.*\bguest/i;
 /**
  * A recording co-credited to an artist the title does not name is another version: "Summer" by Joe
  * Hisaishi & Wiener Symphoniker (2024) is not the "Summer" a video titled with Joe Hisaishi alone
@@ -278,7 +279,50 @@ export async function fetchV7(book: Book, d: MatchDeps): Promise<MbRecording[]> 
  */
 const FINAL: ReadonlySet<string> = new Set(["the title names no song", "a generic title"]);
 
-export async function matchTitle(title: string, d: MatchDeps): Promise<MatchResult> {
+/**
+ * Run 2 of the coverage bar, 2026-11-12: 「钢琴+不插电」I Knew It, I Knew You (a piano and an acoustic
+ * version, 6:05) was named as the 2:59 single, and the 13:42 Thriller short film as the 5:58 album
+ * version. Two checks, each of which only ever makes the rule silent:
+ * 1. A version the video's title names outside the song's own name (钢琴 piano, 不插电 unplugged, live,
+ *    remix…) must show on the recording, in its title or MusicBrainz's note.
+ * 2. When the video's length is known, a recording more than LENGTH_SLACK seconds longer or shorter is
+ *    another version. Bob ruled on 2026-11-08 that length is weak evidence that a version is right; it
+ *    is used here only to stay silent.
+ */
+export const VIDEO_VERSION_WORDS =
+  /\b(?:live|remix|instrumental|demo|acoustic|edit|karaoke|sped|slowed|clean|a cappella|cover|piano|unplugged|orchestral|nightcore|reprise)\b|伴奏|现场|演唱会|翻唱|钢琴|不插电|纯音乐|器乐|女版|男版|戏腔|加速|降速|慢速|混音|重混|演奏版|抒情版|弹唱/i;
+export const LENGTH_SLACK = 30;
+
+/** The video's title with the song's own name taken out: "Piano Man" names no version. */
+export function versionNamed(title: string, parsed: Parsed): boolean {
+  const book = readBook(title);
+  let rest = fold(halfWidth(title));
+  const tracks = [book?.track, ...parsed.queries.map((q) => q.track)].filter((t): t is string => !!t);
+  for (const t of tracks) rest = rest.split(fold(halfWidth(t))).join(" ");
+  return VIDEO_VERSION_WORDS.test(rest);
+}
+
+const showsVersion = (r: MbRecording) => VIDEO_VERSION_WORDS.test(fold(r.title)) || VIDEO_VERSION_WORDS.test(fold(r.disambiguation ?? ""));
+
+export interface MatchOptions {
+  /** The video's own length, when the page's player reports it. */
+  videoSeconds?: number;
+}
+
+/** The two silent-only checks, on a result the rule has already reached. */
+export function lastChecks(title: string, r: MatchResult, o: MatchOptions = {}): MatchResult {
+  if (r.state !== "certain") return r;
+  if (versionNamed(title, r.parsed) && !showsVersion(r.recording)) return { state: "silent", reason: "a version the recording lacks", candidates: r.candidates, parsed: r.parsed };
+  const len = r.recording.length;
+  if (o.videoSeconds && len && Math.abs(o.videoSeconds - len / 1000) > LENGTH_SLACK) return { state: "silent", reason: "lengths differ", candidates: r.candidates, parsed: r.parsed };
+  return r;
+}
+
+export async function matchTitle(title: string, d: MatchDeps, o: MatchOptions = {}): Promise<MatchResult> {
+  return lastChecks(title, await matchBeforeChecks(title, d), o);
+}
+
+async function matchBeforeChecks(title: string, d: MatchDeps): Promise<MatchResult> {
   const parsed = parseTitle(title);
   const book = readBook(title);
   const first = parsed.queries.length ? decide(parsed, await fetchFor(parsed, d)) : decide(parsed, []);

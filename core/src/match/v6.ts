@@ -39,7 +39,11 @@ export type Silence =
   | "only clean edits"
   | "versions months apart"
   /** Version 7: a recording by a named artist exists, but its credit does not fit the names in the title. */
-  | "credits differ";
+  | "credits differ"
+  /** Version 7.2: the video's title names a version (piano, unplugged, live…) the recording does not show. */
+  | "a version the recording lacks"
+  /** Version 7.2: the video is much longer or shorter than the recording. */
+  | "lengths differ";
 
 export interface Candidate {
   recording_id: string;

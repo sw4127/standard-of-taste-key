@@ -93,3 +93,19 @@ describe("the bar: at least 8 in 10 nameable videos named, none wrong", () => {
     expect(tally(marks({ "Silent, and the song is not on MusicBrainz": 5 })).passes).toBe(false);
   });
 });
+
+describe("reading a pasted video list (run 3 onward)", () => {
+  it("each length line is followed by its title; counts, dates and page tabs are left out", async () => {
+    const { readPaste } = await import("./coverage/paste");
+    const raw = ["音频", "0", "TA的视频", "最新发布", "", "04:24", "「戳爷She’s the Best」FF - Troye Sivan", "作词 : Troye Sivan", "9378", "1", "10月15日", "", "34:06", "「后摇之神」I - II - III- IV - V - VI By Athletics", "作词 : 作曲 :", "14.1万", "485", "6月11日", "1:02:03", "A long video"].join("\n");
+    expect(readPaste(raw)).toEqual([
+      { title: "「戳爷She’s the Best」FF - Troye Sivan", seconds: 264 },
+      { title: "「后摇之神」I - II - III- IV - V - VI By Athletics", seconds: 2046 },
+      { title: "A long video", seconds: 3723 },
+    ]);
+  });
+  it("run 2's lengths are on file for every title", async () => {
+    const { COVERAGE_SECONDS } = await import("./coverage/titles");
+    for (const t of COVERAGE_TITLES) expect(COVERAGE_SECONDS[t], t).toBeGreaterThan(60);
+  });
+});

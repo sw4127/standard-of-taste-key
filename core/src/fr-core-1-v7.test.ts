@@ -11,7 +11,7 @@ import MB_V7 from "./match/fixtures-mb-v7.json";
 import { parseTitle, stripNotes } from "./match/parse";
 import { normalise, type MbRecording } from "./match/studio";
 import { decide, fetchFor } from "./match/v6";
-import { artistStands, bare, decideV7, halfWidth, isRemovedVideoTitle, matchTitle, outsideParts, readBook, RULE_VERSION, sameTitle, searchesV7, silenceLine, stands, trackForms, type MatchResult } from "./match/v7";
+import { artistStands, bare, decideV7, halfWidth, isRemovedVideoTitle, lastChecks, matchTitle, versionNamed, outsideParts, readBook, RULE_VERSION, sameTitle, searchesV7, silenceLine, stands, trackForms, type MatchResult } from "./match/v7";
 import { Gate } from "./sources/http";
 
 const artist = (name: string, aliases: string[] = []) => ({ name, artist: { id: name, name, aliases: aliases.map((a) => ({ name: a })) } });
@@ -297,5 +297,49 @@ describe("re-run of the coverage bar, 2026-11-12: the credit must fit the names 
     expect(v7(t, [{ ...plain, releases: [{ id: "x", status: "Bootleg" }] }]).state).toBe("silent");
     expect(v7(t, [{ ...plain, releases: [{ id: "x", "release-group": { id: "g", "secondary-types": ["Compilation"] } }] }]).state).toBe("silent");
     expect(v7(t, [plain, { ...plain, id: "second" }]).state).toBe("silent"); // two recordings: not lone
+  });
+});
+
+describe("run 2 of the coverage bar, 2026-11-12: two checks that only make the rule silent", () => {
+  const JV = [artist("Juniper Varga")];
+  const plain = (len?: number) => ({ ...rec("plain", "Glass Harbour", JV, [rel("2020-06-29", "Single")]), length: len });
+  const certain = (title: string, r: MbRecording): MatchResult => ({ state: "certain", recording: r, candidate: { recording_id: r.id, title: r.title, artist_credit: "Juniper Varga" }, candidates: [], parsed: parseTitle(title) });
+  it("a version the title names outside the song's own name (钢琴 piano, 不插电 unplugged) must show on the recording", () => {
+    const t = "「钢琴+不插电」Glass Harbour - Juniper Varga";
+    expect(lastChecks(t, certain(t, plain())).state).toBe("silent");
+    expect((lastChecks(t, certain(t, plain())) as { reason: string }).reason).toBe("a version the recording lacks");
+    const piano = { ...plain(), title: "Glass Harbour (Piano Version)" };
+    expect(lastChecks(t, certain(t, piano)).state).toBe("certain");
+    const noted = { ...plain(), disambiguation: "acoustic, unplugged" };
+    expect(lastChecks(t, certain(t, noted)).state).toBe("certain");
+  });
+  it("each Chinese version word counts on its own", () => {
+    for (const w of ["钢琴", "不插电", "纯音乐", "伴奏", "现场", "戏腔", "女版", "混音", "加速", "降速"]) {
+      const t = `「${w}」Glass Harbour - Juniper Varga`;
+      expect(versionNamed(t, parseTitle(t)), w).toBe(true);
+    }
+  });
+  it("a version word that is part of the song's own name names no version", () => {
+    for (const t of ["「怀旧经典」Piano Man - Juniper Varga", "Juniper Varga《Live Wire》"]) {
+      const r = { ...plain(), title: t.includes("Piano") ? "Piano Man" : "Live Wire" };
+      expect(lastChecks(t, certain(t, r)).state, t).toBe("certain");
+    }
+    expect(versionNamed("「怀旧经典」Piano Man - Juniper Varga", parseTitle("「怀旧经典」Piano Man - Juniper Varga"))).toBe(false);
+    expect(versionNamed("「钢琴+不插电」Glass Harbour - Juniper Varga", parseTitle("「钢琴+不插电」Glass Harbour - Juniper Varga"))).toBe(true);
+    expect(versionNamed("2026年最新版！Juniper Varga《Glass Harbour》MV", parseTitle("2026年最新版！Juniper Varga《Glass Harbour》MV"))).toBe(false); // 最新版 is "latest edition", MV is no version
+  });
+  it("a recording more than 30 seconds longer or shorter than the video is another version; with no length known, nothing changes", () => {
+    const t = "Juniper Varga《Glass Harbour》";
+    expect(lastChecks(t, certain(t, plain(358_000)), { videoSeconds: 822 }).state).toBe("silent"); // the Thriller short film
+    expect((lastChecks(t, certain(t, plain(178_000)), { videoSeconds: 365 }) as { reason: string }).reason).toBe("lengths differ");
+    expect(lastChecks(t, certain(t, plain(238_805)), { videoSeconds: 239 }).state).toBe("certain");
+    expect(lastChecks(t, certain(t, plain(200_000)), { videoSeconds: 230 }).state).toBe("certain"); // 30 s exactly is kept
+    expect(lastChecks(t, certain(t, plain(200_000)), { videoSeconds: 231 }).state).toBe("silent");
+    expect(lastChecks(t, certain(t, plain(undefined)), { videoSeconds: 822 }).state).toBe("certain");
+    expect(lastChecks(t, certain(t, plain(358_000))).state).toBe("certain");
+  });
+  it("either silence says \"I couldn't read this title.\"", () => {
+    const t = "Juniper Varga《Glass Harbour》";
+    expect(silenceLine(lastChecks(t, certain(t, plain(358_000)), { videoSeconds: 822 }))).toBe("I couldn't read this title.");
   });
 });

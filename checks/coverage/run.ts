@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { matchTitle, readBook, RULE_VERSION, silenceLine, trackForms, outsideParts } from "../../core/src/match/v7";
 import { Gate, type FetchFn } from "../../core/src/sources/http";
 import { COVERAGE_MARKS, fingerprint, hiddenState, split, tally, type CoverageMark, type Frozen } from "./coverage";
-import { COVERAGE_COPIED_ON, COVERAGE_TITLES, COVERAGE_UPLOADER } from "./titles";
+import { COVERAGE_COPIED_ON, COVERAGE_SECONDS, COVERAGE_TITLES, COVERAGE_UPLOADER } from "./titles";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const core = join(here, "..", "..", "core", "src");
@@ -59,7 +59,8 @@ export async function runTitles(titles: string[], withLookup: boolean): Promise<
   const rows: Row[] = [];
   for (const title of titles) {
     try {
-      const r = await matchTitle(title, { fetchFn, gate, cache });
+      // The video's length, from Bob's paste, as the panel reads it from the player (rule v7.2).
+      const r = await matchTitle(title, { fetchFn, gate, cache }, { videoSeconds: COVERAGE_SECONDS[title] });
       if (r.state === "certain") {
         rows.push({ title, named: { title: r.candidate.title, artist: r.candidate.artist_credit, first: r.candidate.first_release, record: r.candidate.record, recording_id: r.candidate.recording_id } });
       } else {

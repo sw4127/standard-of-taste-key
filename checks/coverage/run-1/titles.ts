@@ -92,3 +92,6 @@ export const COVERAGE_TITLES: string[] = [
   "【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《grey trails l ive on》- 66yy -",
   "【𝐇𝐢-𝐑𝐞𝐬无损音质】｜《梦的光点》- 王心凌 -‘靠近了一点 梦就住在前面’",
 ];
+
+/** Run 1's paste gave lengths too; they were not used by rule v7.0 or v7.1 and are not kept here. */
+export const COVERAGE_SECONDS: Record<string, number> = {};

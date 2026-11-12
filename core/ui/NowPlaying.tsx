@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { normalise } from "../src/match/studio";
 import { fixFor, fixTyped, type FixList as FixListData, type FixRow } from "../src/match/fix";
-import { matchTitle, RULE_VERSION, silenceLine, type Candidate, type MatchResult } from "../src/match/v7";
+import { lastChecks, matchTitle, RULE_VERSION, silenceLine, type Candidate, type MatchResult } from "../src/match/v7";
 import type { LivePage, PageFacts, PlayRow, SongFacts } from "../src/model";
 import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
@@ -73,6 +73,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
   const [status, setStatus] = useState<Status>({ kind: "reading" });
   const [fixing, setFixing] = useState(false);
   const play = useRef<PlayRow | null>(null);
+  /** The rule's own result for this viewing, so a length the player reports later can still be checked. */
+  const ruled = useRef<MatchResult | null>(null);
   /** The play as it was before the last pick, so that "Undo" can put it back. */
   const beforePick = useRef<PlayRow | null>(null);
   const [canUndo, setCanUndo] = useState(false);
@@ -87,6 +89,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     setFixing(false);
     setCanUndo(false);
     beforePick.current = null;
+    ruled.current = null;
     const { row: again, sameTitle } = viewingFor(st.plays, live.play_token, f.page_title);
     if (again && sameTitle) {
       play.current = again;
@@ -114,7 +117,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       return;
     }
     setStatus({ kind: "reading" });
-    matchTitle(f.page_title, { fetchFn }).then(
+    matchTitle(f.page_title, { fetchFn }, { videoSeconds: live.duration_seconds }).then(
       (result) => {
         if (gone) return;
         // Merge into the newest row: seconds heard may have been saved while the rule ran.
@@ -128,6 +131,7 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
         void actions.savePlay(play.current);
         actions.log("key_ready", { play_id: row.play_id, value: result.state === "certain" ? "certain" : `silent: ${result.reason}` });
         setStatus({ kind: "match", result });
+        ruled.current = result;
       },
       () => {
         if (gone) return;
@@ -139,6 +143,21 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       gone = true;
     };
   }, [st.ready, key, f.page_title, live.play_token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Rule v7.2: the player may report the video's length only after the rule has named a song. If the
+  // recording is then more than 30 seconds longer or shorter, the song is taken back and the card is silent.
+  useEffect(() => {
+    const r = ruled.current;
+    const row = play.current;
+    if (!r || r.state !== "certain" || !live.duration_seconds || !row || row.match_state !== "certain") return;
+    const checked = lastChecks(f.page_title, r, { videoSeconds: live.duration_seconds });
+    if (checked.state === "certain") return;
+    ruled.current = checked;
+    play.current = { ...row, recording_id: "", match_state: "unsure", song_title: undefined, song_artist: undefined };
+    void actions.savePlay(play.current);
+    actions.log("key_ready", { play_id: row.play_id, value: `silent: ${checked.reason}` });
+    setStatus({ kind: "match", result: checked });
+  }, [live.duration_seconds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seconds heard: kept with the play every 5 seconds, and at a pause or the end.
   useEffect(() => {
