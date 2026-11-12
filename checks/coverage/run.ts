@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseTitle } from "../../core/src/match/parse";
 import { matchTitle, readBook, RULE_VERSION, silenceLine, trackForms, outsideParts } from "../../core/src/match/v7";
 import { Gate, type FetchFn } from "../../core/src/sources/http";
 import { COVERAGE_MARKS, fingerprint, hiddenState, split, tally, type CoverageMark, type Frozen } from "./coverage";
@@ -35,11 +36,14 @@ const UA = "StandardOfTaste-TheKey/0.1 (private prototype; coverage check)";
 const fetchFn: FetchFn = (u) => fetch(u, { headers: { "User-Agent": UA } });
 
 async function lookup(title: string, gate: Gate): Promise<string[]> {
+  // A 《》 title is read as rule v7 reads it; any other title as version 6.3 reads it (its first reading).
   const book = readBook(title);
-  if (!book) return [];
-  const track = trackForms(book.track).at(-1)!;
+  const q0 = parseTitle(title).queries[0];
+  const track = book ? trackForms(book.track).at(-1)! : q0?.track;
+  const names = book ? outsideParts(book.outside) : q0?.artists ?? [];
+  if (!track) return [];
   const out: string[] = [];
-  for (const name of outsideParts(book.outside).slice(0, 2)) {
+  for (const name of names.slice(0, 2)) {
     await gate.wait();
     const q = `recording:"${track.replace(/["\\]/g, "\\$&")}" AND artist:"${name.replace(/["\\]/g, "\\$&")}"`;
     try {
