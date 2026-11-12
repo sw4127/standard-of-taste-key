@@ -5,21 +5,31 @@
  * Every reading offered on a line across songs (T9.3) cites a fact about music, its grounding source.
  * A part with no cited definition (the voice, the words) has no readings, so its line is not shown.
  */
+import { shipping } from "./library";
 import type { CreditRole, Part } from "./model";
 
 export interface Grounding {
   citation: string;
   url: string;
+  /** FR-T9.3 (f): a published finding is cited only from the shipping library, by its ID. */
+  library_id?: string;
 }
 
-export const GAGNON_PERETZ: Grounding = {
-  citation: "Gagnon & Peretz 2003, Cognition and Emotion: listeners hear major mode as happier and minor as sadder, with tempo the stronger cue",
-  url: "https://doi.org/10.1080/02699930302279",
-};
-export const KRUMHANSL_ZUPNICK: Grounding = {
-  citation: "Krumhansl & Zupnick 2013, Psychological Science 24(10): memories and preference peak for music of one's youth, with a second peak for the music of one's parents' generation",
-  url: "https://doi.org/10.1177/0956797613486486",
-};
+/** A shipping library entry as a reading's grounding; one that may not ship cannot be asked for. */
+export function fromLibrary(id: string): Grounding {
+  const e = shipping(id);
+  return { citation: `${e.citation}: ${e.sentence}`, url: e.url, library_id: e.id };
+}
+
+export const LIB_2 = fromLibrary("LIB-2");
+export const LIB_3 = fromLibrary("LIB-3");
+export const LIB_9 = fromLibrary("LIB-9");
+
+/*
+ * The rework (2026-11-12, FR-T9.3 (f)): Gagnon & Peretz 2003 and Krumhansl & Zupnick 2013 are not in
+ * the shipping library, so the key, tempo and date readings now cite LIB-9 and LIB-3. The glossary,
+ * Wikipedia and MusicBrainz groundings below define a term; they state no finding, so they stay.
+ */
 export const SUNO_GLOSSARY: Grounding = {
   citation: "Music Glossary for Suno (bridge, verse, chorus, intro, groove, timbre)",
   url: "https://help.suno.com/en/articles/9010177",
@@ -41,6 +51,8 @@ export interface ReadingTemplate {
   /** The reading as the person kept it, for the taste note: "You said: …". */
   kept: string;
   grounding: Grounding;
+  /** FR-T9.3 (b): the button's words when they are an answer to a question shown above ("Yes"). */
+  answer?: string;
 }
 
 export interface KindTemplates {
@@ -57,7 +69,8 @@ export type PatternKind =
   | `part:${Part}`
   | "release-window"
   | "found-later"
-  | "shared-person";
+  | "shared-person"
+  | "period";
 
 const pair = (
   id: string,
@@ -74,9 +87,9 @@ const WHERE_FIRST = "Where were you when one of these first reached you?";
 export const KIND_TEMPLATES: Record<string, KindTemplates> = {
   "key-major": {
     kind: "key-major",
-    readings: pair("key-major", GAGNON_PERETZ,
-      ["Major keys tend to be heard as brighter. Is that brightness part of what pulls you in?", "a bright key may be part of what pulls you in"],
-      ["Or do these songs not sound bright to you at all?", "these songs don't sound bright to you"]),
+    readings: pair("key-major", LIB_9,
+      ["In one experiment, changing a piece from major to minor changed how listeners felt, and not how alert they were. Is the mood a major key gives part of what pulls you in?", "the mood a major key gives may be part of what pulls you in"],
+      ["Or does the key make no difference to you in these songs?", "the key makes no difference to you in these songs"]),
     question: WHERE_FIRST,
   },
   "key-shared": {
@@ -88,9 +101,9 @@ export const KIND_TEMPLATES: Record<string, KindTemplates> = {
   },
   tempo: {
     kind: "tempo",
-    readings: pair("tempo", GAGNON_PERETZ,
-      ["A song's pace shapes whether it sounds happy or sad even more than its key does. Is the pace these songs share part of the pull?", "the pace these songs share may be part of the pull"],
-      ["Or do they feel like different speeds to you?", "these songs feel like different speeds to you"]),
+    readings: pair("tempo", LIB_9,
+      ["In one experiment, changing a piece's tempo changed how alert listeners felt, and not their mood. Is the pace these songs share part of what keeps you listening?", "the pace these songs share may be part of what keeps you listening"],
+      ["Or do they sound like different speeds to you?", "these songs sound like different speeds to you"]),
     question: "What are you usually doing when you play these?",
   },
   "part:the bridge": {
@@ -137,17 +150,29 @@ export const KIND_TEMPLATES: Record<string, KindTemplates> = {
   },
   "release-window": {
     kind: "release-window",
-    readings: pair("release-window", KRUMHANSL_ZUPNICK,
+    readings: pair("release-window", LIB_3,
       ["People tend to hold on most to music from their teens and twenties. Did these songs come out around then for you?", "these songs may have come out around your teens or twenties"],
       ["Or did these songs reach you later?", "these songs reached you later"]),
     question: "What was happening in your life around then?",
   },
   "found-later": {
     kind: "found-later",
-    readings: pair("found-later", KRUMHANSL_ZUPNICK,
+    readings: pair("found-later", LIB_3,
       ["People hold on to music from before their time too, often heard through someone older. Did someone bring these to you?", "someone may have brought these songs to you"],
       ["Or did you go back and find them yourself?", "you went back and found these songs yourself"]),
     question: "Do you remember how they found you?",
+  },
+  /*
+   * FR-T9.3 (b): the period line. Its one reading is the finding of LIB-2 put as a question, answered
+   * "Yes", "No, something else" or "Neither"; the two buttons are the two readings.
+   */
+  period: {
+    kind: "period",
+    readings: [
+      { template_id: "period/a", ask: "Is a memory of a person, a period or a place what these records are for you?", kept: "these records may hold a memory of a person, a period or a place for you", grounding: LIB_2, answer: "Yes" },
+      { template_id: "period/b", ask: "Or are these records something else for you?", kept: "these records are something other than a memory of a person, a period or a place for you", grounding: LIB_2, answer: "No, something else" },
+    ],
+    question: "What was happening in your life around then?",
   },
   "shared-person": {
     kind: "shared-person",

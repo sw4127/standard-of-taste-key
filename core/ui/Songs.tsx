@@ -8,7 +8,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ALBUM_PARTS, isAlbum, PARTS, type AlbumPart, type NamedSong, type Part, type SongFacts } from "../src/model";
 import { albumFacts, searchAlbums, type AlbumCandidate } from "../src/sources/albums";
 import { BirthYear, FoundBar, SeveralAtOnce } from "./Naming";
-import { linesAcross, MIN_SONGS_FOR_LINES } from "../src/patterns";
+import { isSoundLine, linesAcross, MIN_SONGS_FOR_LINES } from "../src/patterns";
+import { Hear } from "./Hear";
 import { theirName } from "../src/firstwords";
 import { noteAvailable } from "../src/note";
 import { confirmSong } from "../src/sources/confirm";
@@ -57,6 +58,7 @@ function SongEntry({ entry, facts, open, onToggle }: { entry: NamedSong; facts: 
           {facts.bpm && <span className="meta">{Math.round(facts.bpm.value)} BPM</span>}
         </p>
       )}
+      {!album && (facts.bpm || facts.key) && <Hear bpm={facts.bpm?.value} k={facts.key && facts.key.strength >= 0.5 ? facts.key : null} />}
       {open ? (
         <>
           {album ? (
@@ -238,9 +240,13 @@ export function Songs() {
   const [person, setPerson] = useState(ME);
   const songs = useMemo(() => songsOf(st, person), [st, person]);
   const [open, setOpen] = useState<string | null>(null);
-  const [lineIndex, setLineIndex] = useState(0);
-  const lines = useMemo(() => linesAcross(songs), [songs]);
-  const line = lines[Math.min(lineIndex, lines.length - 1)];
+  const [more, setMore] = useState(false);
+  const [inSound, setInSound] = useState(false);
+  const all = useMemo(() => linesAcross(songs, new Date(), { birthYear: person === ME ? st.birth_year : undefined }), [songs, st.birth_year, person]);
+  // FR-T9.3 (e): one line first, "N more" opens the rest; (c) key and tempo sit behind their own tap.
+  const lines = all.filter((l) => !isSoundLine(l));
+  const sound = all.filter((l) => isSoundLine(l));
+  const line = lines[0];
   const full = songs.length >= MAX_SONGS;
   const people = others(st);
   const who = person === ME ? null : people.find((p) => p.person_id === person);
@@ -282,25 +288,32 @@ export function Songs() {
         </p>
       )}
 
-      {songs.length >= MIN_SONGS_FOR_LINES && !line && (
+      {songs.length >= MIN_SONGS_FOR_LINES && !line && !sound.length && (
         <p className="card record">No pattern across these songs is strong enough to show yet. Another song, or an answer to the two questions, may change that.</p>
       )}
 
-      {line && (
-        <LineAcross
-          key={`${person}:${line.id}`}
-          line={line}
-          person={person}
-          onNext={lines.length > 1 ? () => setLineIndex((i) => (i + 1) % lines.length) : undefined}
-          nextLabel={lineIndex + 1 >= lines.length ? "Back to the first line" : "Next line"}
-        />
+      {line && <LineAcross key={`${person}:${line.id}`} line={line} person={person} />}
+      {lines.length > 1 && !more && (
+        <div className="card slim">
+          <button type="button" className="act" onClick={() => setMore(true)}>
+            {lines.length - 1} more
+          </button>
+        </div>
       )}
-      {lines.length > 1 && <p className="card slim meta">Line {Math.min(lineIndex, lines.length - 1) + 1} of {lines.length} across these songs.</p>}
+      {more && lines.slice(1).map((l) => <LineAcross key={`${person}:${l.id}`} line={l} person={person} />)}
+      {sound.length > 0 && (
+        <div className="card slim">
+          <button type="button" className="act" aria-expanded={inSound} onClick={() => setInSound((x) => !x)}>
+            {inSound ? "Hide the patterns in sound" : "More patterns, in sound"}
+          </button>
+        </div>
+      )}
+      {inSound && sound.map((l) => <LineAcross key={`${person}:${l.id}`} line={l} person={person} />)}
 
-      {((person === ME && noteAvailable(st.choices, st.words, ME)) || lines.length > 0) && (
+      {((person === ME && noteAvailable(st.choices, st.words, ME)) || all.length > 0) && (
         <div className="card row">
           {person === ME && noteAvailable(st.choices, st.words, ME) && <Go to="note">Your taste in words, so far</Go>}
-          {lines.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
+          {all.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
         </div>
       )}
       {person === ME && <BirthYear value={st.birth_year} />}

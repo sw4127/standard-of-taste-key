@@ -29,12 +29,12 @@ describe("mode and key", () => {
     // Saltwind's key strength is 0.48: it does not count as measured.
     expect(kinds([...three, named(byTitle("Saltwind"))])).not.toContain("key-major");
   });
-  it("names the major share and the shared key, with the chance figure and its assumption", () => {
+  it("names the major share and the shared key, and says it cannot tell whether this is unusual (FR-T9.3 (c))", () => {
     const line = linesAcross(four, NOW).find((l) => l.kind === "key-major")!;
     expect(line.pattern).toBe("All four songs whose key could be measured are in a major key, and three are in B-flat major.");
-    expect(line.chance).toMatch(/if major and minor were equally likely/i);
-    expect(line.chance).toMatch(/if all 24 keys were equally likely/i);
+    expect(line.chance).toBe("I can't tell you whether this is unusual.");
     expect(line.gloss).toBeTruthy();
+    expect(line.sound?.key).toBeTruthy();
   });
   it("a key shared only by one artist's songs is not a shared key", () => {
     const one = (t: string, i: number): Song => named({ ...byTitle("Glass Harbour"), recording_id: `x${i}`, title: t });
@@ -61,25 +61,11 @@ describe("tempo", () => {
   });
 });
 
-describe("the part named most", () => {
+describe("FR-T9.3 (a): a line built from the count of a single answer is never shown on its own", () => {
   const titles = ["Glass Harbour", "Second Lamp", "Kite Weather", "Copper Rain"];
-  it("a part named for at least half of three or more answers", () => {
-    const songs = titles.map((t, i) => named(byTitle(t), i < 3 ? "the bridge" : "a verse"));
-    const line = linesAcross(songs, NOW).find((l) => l.kind === "part:the bridge")!;
-    expect(line.pattern).toBe("In three of the four songs where you said what you come back for, you picked “the bridge”, and never “the chorus”.");
-    expect(line.evidence.every((e) => e.source.label === "Your answer")).toBe(true);
-  });
-  it("every answer the same part reads \"In all four songs\"", () => {
-    const line = linesAcross(titles.map((t) => named(byTitle(t), "the bridge")), NOW).find((l) => l.kind === "part:the bridge")!;
-    expect(line.pattern).toBe("In all four songs where you said what you come back for, you picked “the bridge”, and never “the chorus”.");
-  });
-  it("two answers are not enough; a tie is no line; 'not sure' does not count", () => {
-    expect(kinds(titles.slice(0, 3).map((t, i) => named(byTitle(t), i < 2 ? "the bridge" : "not sure")))).not.toContain("part:the bridge");
-    expect(kinds(titles.map((t, i) => named(byTitle(t), i < 2 ? "the bridge" : "a verse"))).some((k) => k.startsWith("part:"))).toBe(false);
-  });
-  it("a part with no cited definition (the voice, the words) gives no line", () => {
-    expect(kinds(titles.map((t) => named(byTitle(t), "the voice"))).some((k) => k.startsWith("part:"))).toBe(false);
-    expect(kinds(titles.map((t) => named(byTitle(t), "the words"))).some((k) => k.startsWith("part:"))).toBe(false);
+  it("every answer the same part, or three of four: no part line among the lines", () => {
+    expect(kinds(titles.map((t) => named(byTitle(t), "the bridge"))).some((k) => k.startsWith("part:"))).toBe(false);
+    expect(kinds(titles.map((t, i) => named(byTitle(t), i < 3 ? "the bridge" : "a verse"))).some((k) => k.startsWith("part:"))).toBe(false);
   });
 });
 
@@ -164,5 +150,107 @@ describe("thresholds held exactly (each added after a mutation survived)", () =>
     const same = (t: string, i: number): Song =>
       named({ ...byTitle("Glass Harbour"), recording_id: `same${i}`, title: t });
     expect(kinds([same("A", 1), same("B", 2), same("C", 3)])).not.toContain("shared-person");
+  });
+});
+
+// ---- The rework of 2026-11-10 (FR-T9.3 changed), built in R6 -----------------------------------
+
+import { CANT_SAY_UNUSUAL, foundYears, isSoundLine, restsOnSentence } from "./patterns";
+import { LIBRARY, SHIPPING, shipping } from "./library";
+
+const found = (facts: SongFacts, f: Song["entry"]["found_me"], year?: number): Song => {
+  const s = named(facts, "unanswered", f);
+  return year ? { ...s, entry: { ...s.entry, found_year: year } } : s;
+};
+
+describe("(b) the period line", () => {
+  const four = () => [
+    found(byTitle("Glass Harbour"), "longer ago", 2020),
+    found(byTitle("Second Lamp"), "longer ago", 2021),
+    found(byTitle("Kite Weather"), "longer ago", 2022),
+    found(byTitle("Copper Rain"), "this year"),
+  ];
+  it("with a birth year: ages; the reading is LIB-2's finding as a question, answered Yes, No, something else, or Neither", () => {
+    const line = linesAcross(four(), NOW, { birthYear: 2001 }).find((l) => l.kind === "period")!;
+    expect(line.pattern).toBe("Three of your four records found you between the ages of 18 and 21.");
+    expect(line.prompt).toBe(`${shipping("LIB-2").sentence} Is that what these records are for you?`);
+    expect(line.readings.map((r) => r.answer)).toEqual(["Yes", "No, something else"]);
+    expect(line.readings.every((r) => r.grounding.library_id === "LIB-2")).toBe(true);
+    expect(line.evidence.every((e) => e.source.label === "Your answer")).toBe(true);
+  });
+  it("without a birth year: years, not ages", () => {
+    expect(linesAcross(four(), NOW).find((l) => l.kind === "period")!.pattern).toBe("Three of your four records found you between 2020 and 2022.");
+  });
+  it("needs at least three records with a found year or range; \"longer ago\" with no year has none", () => {
+    expect(foundYears(found(byTitle("Glass Harbour"), "longer ago").entry, 2026)).toBeNull();
+    expect(foundYears(found(byTitle("Glass Harbour"), "the last three years").entry, 2026)).toEqual([2024, 2026]);
+    const two = [found(byTitle("Glass Harbour"), "longer ago", 2020), found(byTitle("Second Lamp"), "longer ago", 2021), found(byTitle("Kite Weather"), "longer ago")];
+    expect(kinds(two)).not.toContain("period");
+  });
+  it("three placed records, only two of them in one stretch: no period line", () => {
+    const songs = [found(byTitle("Glass Harbour"), "longer ago", 2020), found(byTitle("Second Lamp"), "longer ago", 2021), found(byTitle("Kite Weather"), "longer ago", 2010)];
+    expect(kinds(songs)).not.toContain("period");
+  });
+  it("the records must sit inside one stretch of five years, and be at least half of those placed", () => {
+    const spread = [2000, 2008, 2016, 2024].map((y, i) => found(EXAMPLE_CATALOGUE[i]!, "longer ago", y));
+    expect(kinds(spread)).not.toContain("period");
+  });
+});
+
+describe("(c) key and tempo sit behind \"More patterns, in sound\", each saying it cannot tell whether this is unusual", () => {
+  const songs = () => ["Glass Harbour", "Second Lamp", "The Long Stair", "Kite Weather"].map((t) => named(byTitle(t)));
+  it("they come after every other line, say so, and carry what to hear", () => {
+    const lines = linesAcross(songs(), NOW);
+    const firstSound = lines.findIndex((l) => isSoundLine(l));
+    expect(firstSound).toBeGreaterThan(-1);
+    expect(lines.slice(firstSound).every((l) => isSoundLine(l))).toBe(true);
+    for (const l of lines.filter((x) => isSoundLine(x))) {
+      expect(l.chance).toBe(CANT_SAY_UNUSUAL);
+      expect(l.sound?.key ?? l.sound?.bpm).toBeTruthy();
+    }
+  });
+  it("the readings for tempo and mode cite LIB-9", () => {
+    expect(KIND_TEMPLATES["key-major"]!.readings.every((r) => r.grounding.library_id === "LIB-9")).toBe(true);
+    expect(KIND_TEMPLATES.tempo!.readings.every((r) => r.grounding.library_id === "LIB-9")).toBe(true);
+  });
+});
+
+describe("(d) every line says how many of his records it rests on", () => {
+  it("in a whole sentence, counting each record once", () => {
+    const songs = ["Glass Harbour", "Second Lamp", "The Long Stair", "Copper Rain"].map((t) => named(byTitle(t)));
+    for (const l of linesAcross(songs, NOW)) {
+      expect(l.restsOn).toBe(new Set(l.entry_ids).size);
+      expect(restsOnSentence(l.restsOn, l.entry_ids, songs)).toMatch(/^This rests on (two|three|four|five|six|seven|eight|nine|ten) of your songs\.$/);
+    }
+  });
+});
+
+describe("(f) only library entries marked \"may ship\" are used", () => {
+  it("the library is one data file of twelve entries; LIB-4, LIB-8 and LIB-11 do not ship; no entry was added", () => {
+    expect(LIBRARY.map((e) => e.id)).toEqual(["LIB-1", "LIB-2", "LIB-3", "LIB-4", "LIB-5", "LIB-6", "LIB-7", "LIB-8", "LIB-9", "LIB-10", "LIB-11", "PHIL-1"]);
+    expect(SHIPPING.map((e) => e.id)).toEqual(["LIB-1", "LIB-2", "LIB-3", "LIB-5", "LIB-6", "LIB-7", "LIB-9", "LIB-10", "PHIL-1"]);
+    for (const id of ["LIB-4", "LIB-8", "LIB-11"]) expect(() => shipping(id)).toThrow(/may not ship/);
+  });
+  it("every entry says its citation, its address, when it was opened and how it was read; PHIL-1 is labelled as philosophy", () => {
+    for (const e of LIBRARY) {
+      expect(e.sentence.length, e.id).toBeGreaterThan(30);
+      expect(e.citation.length, e.id).toBeGreaterThan(10);
+      expect(e.read_as.length, e.id).toBeGreaterThan(3);
+      if (e.ships) expect(e.url, e.id).toMatch(/^https:\/\//);
+      if (e.ships) expect(e.opened, e.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+    expect(shipping("PHIL-1").label).toMatch(/philosophy/);
+    expect(shipping("PHIL-1").sentence).toMatch(/^A philosopher's account, not a study/);
+  });
+  it("no reading cites an entry that may not ship, and no reading cites a finding from outside the library", () => {
+    const notShipping = LIBRARY.filter((e) => !e.ships);
+    const definitions = new Set(["https://help.suno.com/en/articles/9010177", "https://en.wikipedia.org/wiki/Key_(music)", "https://musicbrainz.org/relationships/artist-recording"]);
+    for (const t of Object.values(KIND_TEMPLATES)) {
+      for (const r of t.readings) {
+        if (r.grounding.library_id) expect(shipping(r.grounding.library_id).url, r.template_id).toBe(r.grounding.url);
+        else expect(definitions.has(r.grounding.url), `${r.template_id}: ${r.grounding.url}`).toBe(true);
+        for (const e of notShipping) expect(r.grounding.citation.includes(e.citation), r.template_id).toBe(false);
+      }
+    }
   });
 });

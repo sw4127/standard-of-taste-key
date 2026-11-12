@@ -26,6 +26,7 @@ export interface OfferedReading {
   ask: string;
   kept: string;
   grounding: Grounding;
+  answer?: string;
 }
 
 export interface PatternLine {
@@ -39,6 +40,25 @@ export interface PatternLine {
   readings: [OfferedReading, OfferedReading];
   question: string;
   entry_ids: string[];
+  /** FR-T9.3 (d): how many of his records the line rests on. */
+  restsOn: number;
+  /** FR-T9.3 (b): a line whose one reading is a finding put as a question, answered Yes, No or Neither. */
+  prompt?: string;
+  /** FR-T9.7: what "Hear this tempo" and "Hear this key" play for a line about sound. */
+  sound?: { bpm?: number; key?: Key };
+}
+
+/** FR-T9.3 (c): lines about key and tempo sit behind "More patterns, in sound", never among the first lines. */
+export const SOUND_KINDS: readonly string[] = ["key-major", "key-shared", "tempo"];
+export const isSoundLine = (l: Pick<PatternLine, "kind">) => SOUND_KINDS.includes(l.kind);
+/** FR-T9.3 (c): every line about key or tempo says so; no source here says whether a pattern is unusual. */
+export const CANT_SAY_UNUSUAL = "I can't tell you whether this is unusual.";
+
+/** FR-T9.3 (d), in a whole sentence. */
+export function restsOnSentence(n: number, ids: string[], songs: Song[]): string {
+  const albums = songs.filter((x) => ids.includes(x.entry.entry_id) && isAlbum(x.entry)).length;
+  const word = albums ? "records" : "songs";
+  return `This rests on ${num(n)} of your ${word}.`;
 }
 
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
@@ -110,6 +130,7 @@ function keyLine(songs: Song[]): PatternLine | null {
     text: `${songLabel(s)} · ${keyName(s.facts.key!)} (how clearly the key came through: ${s.facts.key!.strength.toFixed(2)} out of 1)`,
     source: s.facts.key!.source,
   }));
+  // The chance figures assume keys fall evenly, which real music does not do (PT-3): kept computed, never shown (FR-T9.3 (c)).
   const chances: string[] = [];
   if (majorHolds) {
     chances.push(
@@ -132,9 +153,11 @@ function keyLine(songs: Song[]): PatternLine | null {
       pattern: major === n ? `All ${num(n)} songs whose key could be measured are in a major key${tail}` : `Of the ${num(n)} songs whose key could be measured, ${num(major)} are in a major key${tail}`,
       gloss,
       evidence,
-      chance: chances.join(" "),
+      chance: CANT_SAY_UNUSUAL,
       ...offered("key-major"),
       entry_ids: ids,
+      restsOn: ids.length,
+      sound: { key: (shared ?? measured.filter((x) => x.facts.key!.mode === "major"))[0]!.facts.key },
     };
   }
   const artists = new Set(shared!.map((s) => s.facts.lead_artist_id)).size;
@@ -144,9 +167,11 @@ function keyLine(songs: Song[]): PatternLine | null {
     pattern: `${shared!.length === n ? `All ${num(n)}` : `${cap(num(shared!.length))} of the ${num(n)}`} songs whose key could be measured are in ${sharedKey}, and they're by ${num(artists)} different artists.`,
     gloss,
     evidence,
-    chance: chances.join(" "),
+    chance: CANT_SAY_UNUSUAL,
     ...offered("key-shared", { key: sharedKey }),
     entry_ids: ids,
+    restsOn: ids.length,
+    sound: { key: shared![0]!.facts.key },
   };
 }
 
@@ -183,8 +208,11 @@ function tempoLine(songs: Song[]): PatternLine | null {
       const folded = Math.round(shown) !== Math.round(v) ? ` (measured ${Math.round(v)}, read at ${shown > v ? "double" : "half"} speed)` : "";
       return { entry_id: s.entry.entry_id, text: `${songLabel(s)} · ${Math.round(shown)} BPM${folded}`, source: s.facts.bpm!.source };
     }),
+    chance: CANT_SAY_UNUSUAL,
     ...offered("tempo"),
     entry_ids: best.map((s) => s.entry.entry_id),
+    restsOn: best.length,
+    sound: { bpm: Math.round((lo + hi) / 2) },
   };
 }
 
@@ -211,6 +239,7 @@ function partLine(songs: Song[]): PatternLine | null {
     evidence: answered.map((s) => ({ entry_id: s.entry.entry_id, text: `${songLabel(s)}: ${s.entry.comes_back_for}`, source: YOUR_ANSWER })),
     ...offered(kind),
     entry_ids: answered.map((s) => s.entry.entry_id),
+    restsOn: 0,
   };
 }
 
@@ -245,6 +274,7 @@ function releaseLine(songs: Song[]): PatternLine | null {
     })),
     ...offered("release-window"),
     entry_ids: best.map((s) => s.entry.entry_id),
+    restsOn: 0,
   };
 }
 
@@ -281,6 +311,72 @@ function foundLaterLine(songs: Song[], now: Date): PatternLine | null {
     })),
     ...offered("found-later"),
     entry_ids: later.map((s) => s.entry.entry_id),
+    restsOn: 0,
+  };
+}
+
+// ---- The period line --------------------------------------------------------------------------
+
+/** FR-T9.8: the years a found range covers, or none when it gives no year ("longer ago" with no year). */
+export function foundYears(entry: Song["entry"], nowYear: number): [number, number] | null {
+  switch (entry.found_me) {
+    case "this month":
+    case "this year":
+      return [nowYear, nowYear];
+    case "the last three years":
+      return [nowYear - 2, nowYear];
+    case "longer ago":
+      return entry.found_year ? [entry.found_year, entry.found_year] : null;
+    default:
+      return null;
+  }
+}
+
+/** The narrowest window, in years, that the period line calls one stretch of a life. */
+export const PERIOD_SPAN = 5;
+
+/**
+ * FR-T9.3 (b): "N of your M records found you between the ages of A and B." With a birth year, ages;
+ * without one, years. Built when at least three records have a found year or range, from the largest
+ * set whose ranges fit inside PERIOD_SPAN years, holding at least three records and at least half.
+ * Age from a birth year is known only to a year either way, so A is the lowest it could be.
+ */
+function periodLine(songs: Song[], now: Date, birthYear?: number): PatternLine | null {
+  const y = now.getFullYear();
+  const placed = songs.map((s) => ({ s, r: foundYears(s.entry, y) })).filter((x): x is { s: Song; r: [number, number] } => x.r !== null);
+  const m = placed.length;
+  if (m < 3) return null;
+  let best: typeof placed = [];
+  const starts = [...new Set(placed.map((p) => p.r[0]))];
+  for (const a of starts) {
+    const inside = placed.filter((p) => p.r[0] >= a && p.r[1] <= a + PERIOD_SPAN - 1);
+    if (inside.length > best.length) best = inside;
+  }
+  if (best.length < 3 || best.length < m / 2) return null;
+  const lo = Math.min(...best.map((p) => p.r[0])), hi = Math.max(...best.map((p) => p.r[1]));
+  const span = birthYear
+    ? (() => {
+        const a = Math.max(0, lo - birthYear - 1), b = hi - birthYear;
+        return a === b ? `at the age of ${a}` : `between the ages of ${a} and ${b}`;
+      })()
+    : lo === hi ? `in ${lo}` : `between ${lo} and ${hi}`;
+  const n = best.length;
+  const nn = n === m ? `All ${num(m)}` : `${cap(num(n))} of your ${num(m)}`;
+  const t = KIND_TEMPLATES.period!;
+  const finding = t.readings[0].grounding.citation.split(": ").slice(1).join(": ");
+  return {
+    id: `period:${lo}-${hi}:${n}/${m}${birthYear ? `:${birthYear}` : ""}`,
+    kind: "period",
+    pattern: `${nn}${n === m ? " of your" : ""} records found you ${span}.`,
+    evidence: best.map((p) => ({
+      entry_id: p.s.entry.entry_id,
+      text: `${songLabel(p.s)} · found you: ${p.s.entry.found_me}${p.s.entry.found_year ? `, about ${p.s.entry.found_year}` : ""} (your answer)${birthYear ? `; you were born in ${birthYear} (your answer)` : ""}`,
+      source: YOUR_ANSWER,
+    })),
+    prompt: `${finding} Is that what these records are for you?`,
+    ...offered("period"),
+    entry_ids: best.map((p) => p.s.entry.entry_id),
+    restsOn: n,
   };
 }
 
@@ -312,6 +408,7 @@ function sharedPersonLine(songs: Song[]): PatternLine | null {
     evidence: best.songs.map((s) => ({ entry_id: s.entry.entry_id, text: `${songLabel(s)} · ${best.role}: ${best.name}`, source: best.source })),
     ...offered("shared-person", { role: best.role }),
     entry_ids: best.songs.map((s) => s.entry.entry_id),
+    restsOn: 0,
   };
 }
 
@@ -335,11 +432,20 @@ export function lineBreaches(l: PatternLine, names: readonly string[]): string[]
   ];
 }
 
-export function linesAcross(songs: Song[], now: Date = new Date()): PatternLine[] {
+export interface LinesOptions {
+  /** FR-T9.8: the optional birth year, so the period line can give ages. */
+  birthYear?: number;
+}
+
+export function linesAcross(songs: Song[], now: Date = new Date(), o: LinesOptions = {}): PatternLine[] {
   if (songs.length < MIN_SONGS_FOR_LINES) return [];
   const names = namesIn(songs);
-  return [keyLine(songs), tempoLine(songs), partLine(songs), releaseLine(songs), foundLaterLine(songs, now), sharedPersonLine(songs)]
+  // FR-T9.3 (a): a line built from the count of a single answer option (the part named most) is never
+  // shown on its own, so it is not among the lines. (c): key and tempo come last, behind their own tap.
+  void partLine;
+  return [periodLine(songs, now, o.birthYear), releaseLine(songs), foundLaterLine(songs, now), sharedPersonLine(songs), keyLine(songs), tempoLine(songs)]
     .filter((l): l is PatternLine => l !== null)
+    .map((l) => ({ ...l, restsOn: new Set(l.entry_ids).size }))
     // No pattern is built from a single song.
     .filter((l) => new Set(l.entry_ids).size >= 2)
     // A filled sentence that fails the register or carve-out check is not shown; the next line takes its place.

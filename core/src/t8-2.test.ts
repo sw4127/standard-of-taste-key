@@ -102,13 +102,15 @@ describe("every template passes before it ships", () => {
 
   it("every line the example songs can make passes as filled", () => {
     const parts: Part[] = ["the bridge", "a verse", "the chorus", "the opening", "the beat", "the sound of it"];
-    for (const top of parts) {
+    for (const top of parts.slice(0, 1)) {
       const songs: Song[] = EXAMPLE_CATALOGUE.map((f, i) => ({
         entry: { entry_id: `e${i}`, person_id: "me", typed_text: f.title, recording_id: f.recording_id, comes_back_for: i < 6 ? top : "a verse", found_me: "this year", entered_at: "2026-11-07T12:00:00Z" },
         facts: f,
       }));
-      const lines = linesAcross(songs, new Date("2026-11-07T12:00:00Z"));
-      expect(lines.some((l) => l.kind === `part:${top}`)).toBe(true);
+      const lines = linesAcross(songs, new Date("2026-11-07T12:00:00Z"), { birthYear: 2001 });
+      // The part line is never shown on its own (FR-T9.3 (a)); the period line needs the birth year.
+      expect(lines.some((l) => l.kind.startsWith("part:"))).toBe(false);
+      expect(lines.map((l) => l.kind)).toEqual(expect.arrayContaining(["period", "release-window", "key-major", "tempo"]));
       for (const l of lines) expect(lineBreaches(l, namesIn(songs))).toEqual([]);
     }
   });
@@ -124,14 +126,14 @@ describe("filled sentences, checked at display time", () => {
   const kinds = (fs: SongFacts[]) => linesAcross(fs.map(as), NOW).map((l) => l.kind);
 
   it("a song titled with a carve-out word yields no line", () => {
-    expect(kinds(three)).toContain("part:the bridge");
+    expect(kinds(three)).toContain("release-window");
     for (const title of ["Trauma Bond", "Therapy Session", "抑郁症", "憂鬱症", "創傷"]) {
       const renamed = [{ ...three[0]!, title }, three[1]!, three[2]!];
-      expect(kinds(renamed), title).not.toContain("part:the bridge");
+      expect(kinds(renamed), title).not.toContain("release-window");
     }
   });
   it("an artist or a credited person named with a carve-out word yields no line either", () => {
-    expect(kinds([{ ...three[0]!, artist_credit: "The Anxiety Club" }, three[1]!, three[2]!])).not.toContain("part:the bridge");
+    expect(kinds([{ ...three[0]!, artist_credit: "The Anxiety Club" }, three[1]!, three[2]!])).not.toContain("release-window");
     const shared = ["Glass Harbour", "Kite Weather", "Copper Rain"].map((t) => EXAMPLE_CATALOGUE.find((s) => s.title === t)!);
     expect(kinds(shared)).toContain("shared-person");
     const relabel = shared.map((s) => ({ ...s, people: s.people.map((p) => ({ ...p, name: "Dr. Self-Harm" })) }));
@@ -139,7 +141,7 @@ describe("filled sentences, checked at display time", () => {
   });
   it("a title that is a feeling word is quoted, not stated: the line still shows", () => {
     const renamed = [{ ...three[0]!, title: "Lost" }, { ...three[1]!, title: "Lonely Hearts" }, three[2]!];
-    expect(kinds(renamed)).toContain("part:the bridge");
+    expect(kinds(renamed)).toContain("release-window");
   });
   it("a look-back artist named with a carve-out word yields no line; the next strongest takes its place", () => {
     const stretch = { year: 2026, q: 3 } as const;

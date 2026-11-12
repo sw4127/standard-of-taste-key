@@ -5,7 +5,8 @@
  * optional question to think with (FR-T9.4), answered "In your words".
  */
 import { useId, useState } from "react";
-import type { PatternLine } from "../src/patterns";
+import { CANT_SAY_UNUSUAL, isSoundLine, restsOnSentence, type PatternLine } from "../src/patterns";
+import { Hear } from "./Hear";
 import { actions, useStore } from "./store";
 import { SourceRef } from "./nav";
 
@@ -13,6 +14,7 @@ const short = (citation: string) => citation.split(":")[0]!;
 
 export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: PatternLine; person?: string; onNext?: () => void; nextLabel?: string }) {
   const st = useStore();
+  const songs = st.songs.filter((e) => line.entry_ids.includes(e.entry_id)).map((entry) => ({ entry, facts: st.facts[entry.recording_id]! })).filter((x) => x.facts);
   const [evidence, setEvidence] = useState(false);
   const choice = st.choices.find((c) => c.question_id === line.id && c.person_id === person);
   const saved = st.words.find((w) => w.about === line.id && w.person_id === person);
@@ -30,9 +32,16 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
 
   return (
     <article className="card stack">
-      <p className="label">A line across your songs</p>
+      <p className="label">A line across your records</p>
       <p className="line line-arrives">{line.pattern}</p>
+      <p className="meta">{restsOnSentence(line.restsOn, line.entry_ids, songs)}</p>
       {line.gloss && <p className="record">{line.gloss}</p>}
+      {isSoundLine(line) && (
+        <>
+          <p className="record">{CANT_SAY_UNUSUAL}</p>
+          <Hear bpm={line.sound?.bpm} k={line.sound?.key} />
+        </>
+      )}
 
       <button type="button" className="act" aria-expanded={evidence} aria-controls={`${ids}-ev`} onClick={() => setEvidence((o) => !o)}>
         {evidence ? "Hide the evidence" : "See the evidence"}
@@ -54,12 +63,13 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
               </li>
             ))}
           </ul>
-          {line.chance && <p className="record">How often by chance: {line.chance}</p>}
+          {line.chance && !isSoundLine(line) && <p className="record">How often by chance: {line.chance}</p>}
         </div>
       )}
 
       <hr className="rule" />
       <p className="label">What it might say</p>
+      {line.prompt && <p className="voice">{line.prompt}</p>}
       <div className="readings stack">
         {line.readings.map((r, i) => (
           <button
@@ -69,7 +79,7 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
             aria-pressed={choice?.choice === (i === 0 ? "first" : "second")}
             onClick={() => pick(i === 0 ? "first" : "second")}
           >
-            {r.ask}
+            {r.answer ?? r.ask}
           </button>
         ))}
         <button type="button" className="act choice" aria-pressed={choice?.choice === "neither"} onClick={() => pick("neither")}>
@@ -77,7 +87,7 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
         </button>
       </div>
       <p className="meta">
-        Both readings draw on: <SourceRef source={{ label: short(line.readings[0].grounding.citation), url: line.readings[0].grounding.url }} />
+        {line.prompt ? "The finding is from" : "Both readings draw on"}: <SourceRef source={{ label: short(line.readings[0].grounding.citation), url: line.readings[0].grounding.url }} />
       </p>
 
       {choice && choice.choice !== "neither" && (

@@ -82,8 +82,8 @@ describe("albums in the lines across records", () => {
       ...[0, 2, 4].map((i, n) => entry(EXAMPLE_CATALOGUE[i]!, n, undefined, { comes_back_for: "the bridge" })),
       ...[1, 2, 3].map((i) => entry(album(i, 1990 + i * 9), 10 + i, "album", { comes_back_for: "its overall sound" })),
     ];
-    const line = linesAcross(songs).find((l) => l.kind.startsWith("part:"))!;
-    expect(line.pattern).toContain("In all three songs where you said what you come back for");
+    // FR-T9.3 (a), R6: a part line is never shown on its own, so neither songs nor albums make one now.
+    expect(linesAcross(songs).some((l) => l.kind.startsWith("part:"))).toBe(false);
   });
   it("albums take no part in key, tempo or \"part named most\" lines", () => {
     const songs = [1, 2, 3].map((i) => entry(album(i, 2000 + i * 7), i, "album", { comes_back_for: "its words" }));

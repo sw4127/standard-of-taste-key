@@ -1,0 +1,117 @@
+{
+  "about": "The shipping library (PRD A4, 2026-11-10): published findings the lines across records (FR-T9.3) and the reading (FR-T9.9) may cite. Each entry gives the sentence the product may show, its citation, its address, the date it was opened and how it was read. Only entries with ships = true are ever used. No entry is added in the build.",
+  "entries": [
+    {
+      "id": "LIB-1",
+      "ships": true,
+      "sentence": "834 people rated 129 reasons for listening to music. The reasons fell into three groups: mood and energy, self-awareness, and social connection. The first two were judged much more important than the third.",
+      "citation": "Schäfer, Sedlmeier, Städtler & Huron 2013, Frontiers in Psychology 4:511",
+      "url": "https://frontiersin.org/articles/10.3389/fpsyg.2013.00511/full",
+      "opened": "2026-11-10",
+      "read_as": "the article page"
+    },
+    {
+      "id": "LIB-2",
+      "ships": true,
+      "sentence": "Among 80 people choosing the records they would keep, half of the choices had mattered most between the ages of 10 and 30, and the commonest reason was a memory of a person, a period or a place.",
+      "citation": "Loveday, Woy & Conway 2020, Quarterly Journal of Experimental Psychology 73(11)",
+      "url": "https://openaccess.city.ac.uk/id/eprint/24648/",
+      "opened": "2026-11-10",
+      "read_as": "repository record with abstract"
+    },
+    {
+      "id": "LIB-3",
+      "ships": true,
+      "sentence": "470 adults aged 18 to 82 rated songs from across their lives. Music-related memories peaked for songs from around the age of 14, and young adults also rated music from their parents' teenage years highly.",
+      "citation": "Jakubowski, Eerola, Tillmann, Perrin & Heine 2020, Music & Science 3",
+      "url": "https://durham-repository.worktribe.com/output/1252914",
+      "opened": "2026-11-10",
+      "read_as": "repository record with abstract"
+    },
+    {
+      "id": "LIB-4",
+      "ships": false,
+      "not_shipped_because": "read only through a summary page; the paper itself could not be opened",
+      "sentence": "A study of adolescents found seven ways they use music to manage mood, among them mental work and solace.",
+      "citation": "Saarikallio & Erkkilä 2007, Psychology of Music 35(1)",
+      "url": "https://www.spring.org.uk/2007/03/seven-ways-music-influences-mood.php",
+      "opened": "2026-11-10",
+      "read_as": "a summary page only"
+    },
+    {
+      "id": "LIB-5",
+      "ships": true,
+      "sentence": "374 people rated social reasons for turning to music, television and fiction. The reasons formed seven groups, among them company, understanding others and reminiscence.",
+      "citation": "Schäfer & Eerola 2020, Psychology of Music 48(2)",
+      "url": "https://jyx.jyu.fi/handle/123456789/68291",
+      "opened": "2026-11-10",
+      "read_as": "repository record with abstract"
+    },
+    {
+      "id": "LIB-6",
+      "ships": true,
+      "sentence": "In a survey of 772 people, the rewards of listening to sad music were imagination, emotion regulation, empathy and having no real-life implications. Nostalgia, more than sadness, was what sad music most often brought.",
+      "citation": "Taruffi & Koelsch 2014, PLoS ONE 9(10)",
+      "url": "https://eprints.lancs.ac.uk/id/eprint/73820/",
+      "opened": "2026-11-10",
+      "read_as": "repository record with abstract"
+    },
+    {
+      "id": "LIB-7",
+      "ships": true,
+      "sentence": "When people heard excerpts of popular songs from their past, about three in ten of the excerpts brought back a memory of their own life.",
+      "citation": "Janata, Tomic & Rakowski 2007, Memory 15(8)",
+      "url": "https://informahealthcare.com/doi/full/10.1080/09658210701734593",
+      "opened": "2026-11-10",
+      "read_as": "abstract"
+    },
+    {
+      "id": "LIB-8",
+      "ships": false,
+      "not_shipped_because": "taken from the old project's blueprint, not re-opened at its source",
+      "sentence": "People put in a bad mood chose energetic, joyful music for longer.",
+      "citation": "Knobloch & Zillmann 2002",
+      "url": "",
+      "opened": "not opened",
+      "read_as": "not read at its source"
+    },
+    {
+      "id": "LIB-9",
+      "ships": true,
+      "sentence": "In an experiment, changing a piece's tempo changed how alert listeners felt and not their mood, and changing its mode, major or minor, changed their mood and not how alert they felt.",
+      "citation": "Husain, Thompson & Schellenberg 2002, Music Perception 20(2), 151–171",
+      "url": "https://research.bond.edu.au/en/publications/effects-of-musical-tempo-and-mode-on-arousal-mood-and-spatial-abi/",
+      "opened": "2026-11-10",
+      "read_as": "university record with abstract"
+    },
+    {
+      "id": "LIB-10",
+      "ships": true,
+      "sentence": "When repetition was added to unfamiliar music, listeners rated it more enjoyable, interesting and artistic.",
+      "citation": "Margulis 2013, Empirical Studies of the Arts 31(1), 45–57",
+      "url": "https://collaborate.princeton.edu/en/publications/aesthetic-responses-to-repetition-in-unfamiliar-music/",
+      "opened": "2026-11-10",
+      "read_as": "university record with abstract"
+    },
+    {
+      "id": "LIB-11",
+      "ships": false,
+      "not_shipped_because": "read only through the publisher's press release; the paper was not opened",
+      "sentence": "After the loss of a relationship, people preferred sad music more than after a loss of another kind.",
+      "citation": "Lee, Andrade & Palmer 2013, Journal of Consumer Research",
+      "url": "https://www.eurekalert.org/news-releases/819936",
+      "opened": "2026-11-10",
+      "read_as": "the publisher's press release only"
+    },
+    {
+      "id": "PHIL-1",
+      "ships": true,
+      "label": "philosophy, from a secondary source",
+      "sentence": "A philosopher's account, not a study: for R. G. Collingwood, \"To express is to become conscious of an emotion\", and artists \"speak to those who understand\", expressing \"emotions that are mutually held\".",
+      "citation": "Kemp, \"Collingwood's Aesthetics\", Stanford Encyclopedia of Philosophy, revised 2021-11-30 (on Collingwood's The Principles of Art, 1938)",
+      "url": "https://plato.stanford.edu/entries/collingwood-aesthetics/",
+      "opened": "2026-11-10",
+      "read_as": "a secondary source on Collingwood"
+    }
+  ]
+}
