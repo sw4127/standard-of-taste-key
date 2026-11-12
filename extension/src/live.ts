@@ -6,24 +6,34 @@ import { useEffect, useState } from "react";
 import type { LivePage } from "@sot/core/src/model";
 import type { LiveMessage } from "./content";
 
-export function useLivePage(): LivePage | null {
+/** The page in front: what plays on it, and whether it is a Bilibili page at all (FR-T1.7). */
+export function useLivePage(): { live: LivePage | null; onBilibili: boolean } {
   const [live, setLive] = useState<LivePage | null>(null);
+  const [onBilibili, setOnBilibili] = useState(false);
   useEffect(() => {
     if (typeof chrome === "undefined" || !chrome.tabs?.query) return;
     let active: number | undefined;
     const hello = async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       active = tab?.id;
-      if (active === undefined) return setLive(null);
+      if (active === undefined) {
+        setOnBilibili(false);
+        return setLive(null);
+      }
       try {
         const r = (await chrome.tabs.sendMessage(active, { type: "key:hello" })) as LiveMessage | undefined;
+        setOnBilibili(!!r);
         setLive(r?.facts ? r : null);
       } catch {
-        setLive(null); // no content script here: not a Bilibili video page
+        setOnBilibili(false); // no content script here: not a Bilibili page
+        setLive(null);
       }
     };
     const onMessage = (m: LiveMessage, sender: chrome.runtime.MessageSender) => {
-      if (m?.type === "key:page" && sender.tab?.id === active) setLive(m.facts ? m : null);
+      if (m?.type === "key:page" && sender.tab?.id === active) {
+        setOnBilibili(true);
+        setLive(m.facts ? m : null);
+      }
     };
     const onActivated = () => void hello();
     const onUpdated = (tabId: number, info: { status?: string }) => {
@@ -39,5 +49,5 @@ export function useLivePage(): LivePage | null {
       chrome.tabs.onUpdated.removeListener(onUpdated);
     };
   }, []);
-  return live;
+  return { live, onBilibili };
 }

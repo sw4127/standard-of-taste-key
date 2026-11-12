@@ -1,6 +1,6 @@
 /** T2.2 First words (FR-T2.2): own record, then a friend's plays, then the quiet line; never a credit or a story. */
 import { describe, expect, it } from "vitest";
-import { firstLine, ownRecordLine, QUIET } from "./firstwords";
+import { firstLine, ownRecordLine, QUIET, QUIET_FIRST } from "./firstwords";
 import type { KeyRow, PlayRow } from "./model";
 import { FACTS, FRIEND, friendPlays, OTHER, play, SAME_ARTIST, SONG } from "./testing/panel";
 
@@ -11,7 +11,9 @@ describe("with an empty record and no friend's file", () => {
   it("the line is the quiet line", () => {
     const l = now([], play(SONG, "2026-11-08T10:00:00"));
     expect(l.kind).toBe("quiet");
-    expect(l.text).toBe(QUIET);
+    // FR-T2.5 as replaced 2026-11-10: on a first play the quiet sentence says the song is on his record now.
+    expect(l.text).toBe(QUIET_FIRST);
+    expect(QUIET).toBe("Nothing worth saying about this one yet.");
   });
 });
 

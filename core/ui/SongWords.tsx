@@ -6,7 +6,9 @@
  * "What do you come back for?" on a tap of the song's name.
  */
 import { useEffect, useMemo, useState } from "react";
-import { firstLine, QUIET_OFFER, waitFor, type FirstLine } from "../src/firstwords";
+import { FIRST_PLAY_WAIT, firstLine, LISTENING_FIRST, LISTENING_KNOWN, QUIET_OFFER, waitFor, type FirstLine } from "../src/firstwords";
+import { wordsAbout } from "../src/idle";
+import { passes } from "../src/checks";
 import { localDay } from "../src/note";
 import { PARTS, type KeyRow, type Part, type PlayRow, type SongFacts } from "../src/model";
 import { HOURS, howItWasMade, NO_CREDITS, sanchoByItself, sinceInstalled } from "../src/proof";
@@ -219,8 +221,65 @@ export function SongWords({ song, play, heard }: { song: SongFacts; play: PlayRo
     if (shown && !shown.proof_opened_at) void actions.saveKey({ ...shown, proof_opened_at: localNow() });
   };
 
+  const [own, setOwn] = useState(false);
+  const mine = wordsAbout(song, { words: st.words, choices: st.choices, songs: st.songs, facts: st.facts, person: ME, passes: (t) => passes(t, "words") });
+
   return (
     <div className="stack">
+      <div className="stack" data-slot="words">
+        {heard < wait && (
+          <>
+            <div className="listen-bar" role="progressbar" aria-label="Seconds heard before words come" aria-valuemin={0} aria-valuemax={wait} aria-valuenow={Math.min(heard, wait)}>
+              <span style={{ width: `${Math.round((100 * Math.min(heard, wait)) / wait)}%` }} />
+            </div>
+            <p className="meta">{wait === FIRST_PLAY_WAIT ? LISTENING_FIRST : LISTENING_KNOWN}</p>
+          </>
+        )}
+        {heard >= wait && line && shown && line.kind !== "quiet" && (
+          <div className="stack line-arrives">
+            <button type="button" className="line line-button" aria-expanded={proof} onClick={openProof}>
+              {line.text}
+            </button>
+            {line.under && <p className="record">{line.under}</p>}
+            <div className="row">
+              <KeyChip k={song.key} />
+              <button type="button" className="act" aria-expanded={proof} onClick={openProof}>
+                {proof ? "Hide the evidence" : "See the evidence"}
+              </button>
+              <button type="button" className="act" onClick={drop}>
+                Not why I love it
+              </button>
+            </div>
+            {proof && <Proof line={line} song={song} play={play} />}
+          </div>
+        )}
+        {heard >= wait && line && shown && line.kind === "quiet" && (
+          <div className="stack line-arrives">
+            <p className="voice">{line.text}</p>
+            {shown.offer_shown && <Go to="songs">{QUIET_OFFER}</Go>}
+          </div>
+        )}
+      </div>
+
+      {mine.length > 0 && (
+        <>
+          <button type="button" className="act" aria-expanded={own} onClick={() => setOwn((x) => !x)}>
+            {own ? "Hide your words" : "Your words about this"}
+          </button>
+          {own && (
+            <div className="evidence stack">
+              <p className="label">In your words</p>
+              {mine.map((m) => (
+                <div key={m.words.words_id} className="stack">
+                  <p className="own">{m.words.text}</p>
+                  <p className="meta">You wrote this on {m.date}.</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {play.reached_end === "yes" && (
         <button type="button" className="act" aria-expanded={asking} onClick={() => setAsking((x) => !x)}>
           {asking ? "Done" : "What do you come back for?"}
@@ -228,30 +287,6 @@ export function SongWords({ song, play, heard }: { song: SongFacts; play: PlayRo
       )}
       {asking && play.reached_end === "yes" && <ComeBackFor song={song} play={play} />}
 
-      {line && shown && line.kind !== "quiet" && (
-        <div className="stack line-arrives">
-          <button type="button" className="line line-button" aria-expanded={proof} onClick={openProof}>
-            {line.text}
-          </button>
-          {line.under && <p className="record">{line.under}</p>}
-          <div className="row">
-            <KeyChip k={song.key} />
-            <button type="button" className="act" aria-expanded={proof} onClick={openProof}>
-              {proof ? "Hide the evidence" : "See the evidence"}
-            </button>
-            <button type="button" className="act" onClick={drop}>
-              Not why I love it
-            </button>
-          </div>
-          {proof && <Proof line={line} song={song} play={play} />}
-        </div>
-      )}
-      {line && shown && line.kind === "quiet" && (
-        <div className="stack line-arrives">
-          <p className="line">{line.text}</p>
-          {shown.offer_shown && <Go to="songs">{QUIET_OFFER}</Go>}
-        </div>
-      )}
 
       <button
         type="button"

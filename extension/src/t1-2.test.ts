@@ -90,9 +90,12 @@ describe("the content script fetches nothing", () => {
       expect(src).not.toMatch(/fetch\(|XMLHttpRequest|api\.bilibili|sendBeacon|WebSocket/);
     }
   });
-  it("runs on Bilibili video pages only", () => {
+  it("runs on Bilibili pages only, and reads page facts only from a video page (FR-T1.7 needs to know a search page is Bilibili)", () => {
     const m = JSON.parse(readFileSync(join(__dirname, "..", "public", "manifest.json"), "utf8"));
-    expect(m.content_scripts[0].matches).toEqual(["https://www.bilibili.com/video/*", "https://www.bilibili.com/*/video/*"]);
+    expect(m.content_scripts[0].matches).toEqual(["https://*.bilibili.com/*"]);
+    document.documentElement.innerHTML = "<head><title>search</title></head><body><h1>Glass Harbour</h1><video></video></body>";
+    expect(readPage(document, "https://search.bilibili.com/all?keyword=x")).toBeNull();
+    expect(m.host_permissions).toEqual(["https://musicbrainz.org/*", "https://acousticbrainz.org/*", "https://www.wikidata.org/*"]);
     expect(m.host_permissions.join()).not.toMatch(/bilibili/);
   });
 });

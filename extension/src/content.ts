@@ -1,7 +1,9 @@
 /**
- * The content script (FR-T1.2), on Bilibili video pages only. It reads the page already open and the
- * play, pause, time and ended events of its media element, and tells The Key's side panel. It fetches
- * nothing, from Bilibili or anywhere; nothing it reads leaves this browser.
+ * The content script (FR-T1.2), on Bilibili pages. On a video page it reads the page already open and the
+ * play, pause, time and ended events of its media element; on any other Bilibili page it reads nothing
+ * and only answers that the page is Bilibili, so the idle panel can say search pages are not read
+ * (FR-T1.7). It tells The Key's side panel, fetches nothing from Bilibili or anywhere, and nothing it
+ * reads leaves this browser.
  */
 import type { LivePage } from "@sot/core/src/model";
 import { HeardClock, mediaOf, readPage, titleStillOld, type PageFacts } from "./page";

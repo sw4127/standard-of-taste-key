@@ -326,6 +326,24 @@ body {
   padding: 0 var(--s2);
 }
 
+/* FR-T2.5: the thin bar that fills over the first minute heard; the line then takes its place. */
+.listen-bar {
+  height: 2px;
+  background: var(--hairline);
+  margin-top: var(--s2);
+}
+
+.listen-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+
+/* The circle's card also takes a dropped Spotify file, with no dashed outline of its own. */
+.drop-quiet {
+  outline: none;
+}
+
 /* A row of the Fix list: what the recording is, then its facts, on two lines; the whole row is the link. */
 .fix-row {
   flex-direction: column;

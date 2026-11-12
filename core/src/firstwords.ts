@@ -16,6 +16,11 @@ import type { Person } from "./storage";
 
 export const QUIET = "Nothing worth saying about this one yet.";
 export const QUIET_OFFER = "Name a few songs that come to mind?";
+/** FR-T2.5 (as replaced 2026-11-10): the quiet sentence on a first play. */
+export const QUIET_FIRST = "First play. Nothing worth saying about this one yet; it is on your record now.";
+/** FR-T2.5: what the card says while the bar fills. */
+export const LISTENING_FIRST = "Listening. Words come after a minute of this song.";
+export const LISTENING_KNOWN = "Listening. Words come after 15 seconds of this song, because you have played it before.";
 /** FR-T2.4: seconds heard before the first line. */
 export const KNOWN_WAIT = 15;
 export const FIRST_PLAY_WAIT = 60;
@@ -195,5 +200,6 @@ export function firstLine(i: FirstWordsInput): FirstLine {
     if (!l || dropped.has(l.template_id)) continue;
     if (passes(l, [...names, ...(l.names ?? [])])) return l;
   }
-  return { kind: "quiet", template_id: "first:quiet", text: QUIET, proof: [], offer: offerDue(i.plays, i.keys, i.play) };
+  const first = waitFor(i.plays, i.song.recording_id, i.play.play_id) === FIRST_PLAY_WAIT;
+  return { kind: "quiet", template_id: "first:quiet", text: first ? QUIET_FIRST : QUIET, proof: [], offer: offerDue(i.plays, i.keys, i.play) };
 }

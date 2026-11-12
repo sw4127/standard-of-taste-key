@@ -27,14 +27,14 @@ const SCREENS: Record<View, () => React.ReactNode> = {
 
 function Panel() {
   const [view, setView] = useState<View>("home");
-  const live = useLivePage();
+  const { live, onBilibili } = useLivePage();
   return (
     <NavContext.Provider value={{ go: setView }}>
       <div className="panel">
         <PanelHead atHome={view === "home"} onHome={() => setView("home")} />
         <main className="panel-body stack-lg">
           {view === "home" && live?.facts && <NowPlaying live={{ ...live, facts: live.facts }} />}
-          {view === "home" ? <PanelHome playing={!!live?.facts} /> : SCREENS[view]()}
+          {view === "home" ? <PanelHome playing={!!live?.facts} onBilibili={onBilibili} /> : SCREENS[view]()}
         </main>
         <PanelFoot />
       </div>
