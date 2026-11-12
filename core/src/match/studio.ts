@@ -26,7 +26,9 @@ export interface MbRecording {
   score?: number;
   disambiguation?: string;
   "first-release-date"?: string;
-  "artist-credit"?: { name: string; joinphrase?: string; artist: { id: string; name: string } }[];
+  "artist-credit"?: { name: string; joinphrase?: string; artist: { id: string; name: string; aliases?: { name: string }[] } }[];
+  /** Milliseconds, where MusicBrainz lists a length. */
+  length?: number;
   releases?: {
     id: string;
     status?: string;

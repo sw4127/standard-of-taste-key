@@ -5,10 +5,13 @@
  * - "stage6": 106 titles from one uploader's list (2026-10-31); answers: rule v5's matches, hand-checked.
  * - "fresh": 42 titles from a second uploader (2026-11-07); answers: rule v6's run, hand-checked (v6 was tuned on them).
  * - "run2": 42 more titles from that uploader; answers: rule v6 frozen, hand-checked.
+ * - "v7": the four videos Bob could not get named or fixed in Stage 9 (2026-11-09), each with the studio
+ *   original MusicBrainz holds (checked on its API that day), and three titles whose 《》 holds a film,
+ *   a show or an album and no song (written for the rework; they must stay silent or name the right song).
  * A match answer names the song, its credit and its first release as the hand check saw them.
  */
 export interface MatchFixture {
-  set: "stage6" | "fresh" | "run2";
+  set: "stage6" | "fresh" | "run2" | "v7";
   title: string;
   answer: { song: string; credit: string; first?: string; recording_id?: string; check?: string } | { silent: string };
 }
@@ -1706,5 +1709,40 @@ export const MATCH_FIXTURES: MatchFixture[] = [
    "first": "2009-06-23",
    "check": "right"
   }
+ },
+ {
+  "set": "v7",
+  "title": "百万级装备听《Heat Waves》- Glass Animals【Hi-Res】",
+  "answer": { "song": "Heat Waves", "credit": "Glass Animals", "first": "2020-06-29", "recording_id": "9f61e4a7" }
+ },
+ {
+  "set": "v7",
+  "title": "百万级装备听《Yellow》- Coldplay【Hi-Res】",
+  "answer": { "song": "Yellow", "credit": "Coldplay", "first": "2000-06-26", "recording_id": "729cf505" }
+ },
+ {
+  "set": "v7",
+  "title": "百万级装备听《Sunflower》- Post Malone，Swae Lee【Hi-Res】",
+  "answer": { "song": "Sunflower", "credit": "Post Malone & Swae Lee", "first": "2018-10-18", "recording_id": "b6df9d04" }
+ },
+ {
+  "set": "v7",
+  "title": "用百万级豪华装备试听The Weeknd《Blinding Lights》【Hi-Res】",
+  "answer": { "song": "Blinding Lights", "credit": "The Weeknd", "first": "2019-11-29", "recording_id": "1a67e215" }
+ },
+ {
+  "set": "v7",
+  "title": "百万级装备听《星际穿越》原声 Cornfield Chase - Hans Zimmer【Hi-Res】",
+  "answer": { "silent": "the 《》 holds a film, not a song" }
+ },
+ {
+  "set": "v7",
+  "title": "百万级装备听《繁花》电视剧插曲 偷心 - 张学友【Hi-Res】",
+  "answer": { "silent": "the 《》 holds a television show, not a song" }
+ },
+ {
+  "set": "v7",
+  "title": "百万级装备听 周杰伦《叶惠美》整张专辑【Hi-Res】",
+  "answer": { "silent": "the 《》 holds an album, not a song" }
  }
 ];

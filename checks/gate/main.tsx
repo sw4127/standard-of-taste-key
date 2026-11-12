@@ -7,7 +7,7 @@ import "../../core/design/fonts";
 import "../../core/design/cardstock.css";
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { matchTitle } from "../../core/src/match/v6";
+import { matchTitle } from "../../core/src/match/v7";
 import { carryMarks, GATE_SIZE, gateTitles, listProblems, MARKS, sheetMarkdown, titlesFrom, verdict, type GateRow, type Mark } from "./gate";
 
 const KEY = "the-key-launch-gate";
@@ -85,8 +85,10 @@ function Gate() {
 
   return (
     <main className="stack-lg" style={{ maxWidth: 760, margin: "0 auto", padding: 16 }}>
-      <p className="label">Launch gate (T8.3) · on this computer only, never shipped</p>
-      <p className="line">Fifty titles the rule has never seen. It passes only if no match is wrong or unprovable.</p>
+      <section className="card stack">
+        <p className="label">Launch gate (T8.3) · on this computer only, never shipped</p>
+        <p className="line">Fifty titles the rule has never seen. It passes only if no match is wrong or unprovable.</p>
+      </section>
 
       <section className="card stack">
         <p className="label">1 · The list</p>
@@ -120,7 +122,7 @@ function Gate() {
           </ul>
         )}
         <button type="button" className="act" disabled={problems.length > 0 || running !== null} onClick={run}>
-          Run rule v6 on these {titles.length}
+          Run the rule on these {titles.length}
         </button>
         {running !== null && <p className="meta" role="status">Running {running + 1} of {s.rows.length}… (one MusicBrainz call every 1.2 s)</p>}
       </section>

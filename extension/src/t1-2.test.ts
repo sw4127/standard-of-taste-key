@@ -38,6 +38,21 @@ describe("reading the page", () => {
   });
 });
 
+describe("a removed video is not a video (FR-CORE-1 v7, step 4)", () => {
+  // Bob's panel export of 2026-11-10 held three such pages stored as plays, each with 0 seconds heard.
+  const removed = (title: string) => `<head><meta property="og:title" content="${title}_哔哩哔哩_bilibili"></head><body><h1 class="video-title">${title}</h1><video></video></body>`;
+  it("Bilibili's notice for a removed video gives no page facts, so nothing is stored", () => {
+    for (const t of ["视频去哪了呢？", "视频去哪了呢"]) {
+      document.documentElement.innerHTML = removed(t);
+      expect(readPage(document, "https://www.bilibili.com/video/BV1ex4y1Ex01/"), t).toBeNull();
+    }
+  });
+  it("a real video whose title merely holds those words is still read", () => {
+    document.documentElement.innerHTML = removed("视频去哪了呢？一首歌的故事");
+    expect(readPage(document, "https://www.bilibili.com/video/BV1ex4y1Ex01/")?.page_title).toBe("视频去哪了呢？一首歌的故事");
+  });
+});
+
 describe("moving to the next video without a reload (Bob's five-video check)", () => {
   const first = { video_id: "BV1ab4y1c7DE", part_number: 1, page_title: "Juniper Varga《Glass Harbour》", uploader_name: "", uploader_id: "", list_title: "", list_position: null, page_tags: [] };
   const second = { ...first, video_id: "BV1zz4y1c7ZZ", page_title: "Example Singer《Paper Lantern》" };

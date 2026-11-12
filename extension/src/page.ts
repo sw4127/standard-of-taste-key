@@ -4,6 +4,7 @@
  * Pure functions over a Document, so the test can feed them a page-shaped fixture.
  */
 
+import { isRemovedVideoTitle } from "@sot/core/src/match/removed";
 import type { PageFacts } from "@sot/core/src/model";
 export type { PageFacts };
 
@@ -20,6 +21,9 @@ export function readPage(doc: Document, url: string): PageFacts | null {
   const u = new URL(url);
   const og = doc.querySelector('meta[property="og:title"]')?.getAttribute("content") ?? "";
   const page_title = text(doc.querySelector("h1.video-title")) || text(doc.querySelector("h1")) || og.replace(/_哔哩哔哩_bilibili$/, "").trim();
+
+  // FR-CORE-1 v7, step 4: Bilibili's notice for a removed video is not a video; nothing is read or stored.
+  if (isRemovedVideoTitle(page_title)) return null;
 
   // One uploader shows .up-name; a video by several shows .staff-name, the first being the uploader.
   const up = doc.querySelector<HTMLAnchorElement>("a.up-name, .up-name, .staff-name");

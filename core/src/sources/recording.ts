@@ -5,7 +5,7 @@
  */
 import type { SongFacts } from "../model";
 import { studioDate } from "../match/studio";
-import type { Candidate } from "../match/v6";
+import type { Candidate } from "../match/v7";
 import { measure } from "./acousticbrainz";
 import type { Clock, FetchFn, Gate } from "./http";
 import { peopleOf, placesOf, recordingDetail, recordingPage } from "./musicbrainz";

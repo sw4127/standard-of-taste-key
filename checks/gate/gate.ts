@@ -8,7 +8,7 @@
 import { MATCH_FIXTURES } from "../../core/src/match/fixtures";
 import { GATE_TUNING_TITLES } from "./tuning-titles";
 import { normalise } from "../../core/src/match/studio";
-import type { Candidate, Silence } from "../../core/src/match/v6";
+import type { Candidate, Silence } from "../../core/src/match/v7";
 
 export const GATE_SIZE = 50;
 /** The uploader whose lists tuned v6 (Stage 7). */

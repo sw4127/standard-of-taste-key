@@ -116,14 +116,23 @@ export function decide(parsed: Parsed, found: MbRecording[]): MatchResult {
     }),
   );
   if (!c.length) return { state: "silent", reason: "no candidate", candidates: candidates(all), parsed };
+  return settle(parsed, c);
+}
 
+/**
+ * The studio filter and the silences, over recordings already accepted on title and artist. Shared by
+ * version 6.3 and version 7 so that both end the same way. `versionWord` says whether a recording's
+ * title carries a version word; version 7 passes its own reading of bracketed notes.
+ */
+export function settle(parsed: Parsed, c: MbRecording[], versionWord: (r: MbRecording) => boolean = (r) => hasVersionWord(r.title)): MatchResult {
+  const candidates = (rs: MbRecording[]) => rs.slice(0, 8).map(toCandidate);
   const studio = c
     .map((r) => {
       const good = goodReleases(r);
       const d = good.map((x) => x.date).filter((x): x is string => !!x).sort();
       return { r, good, first: d[0] ?? null, rgs: new Set(good.map((x) => x["release-group"]!.id)) };
     })
-    .filter((o) => o.good.length && (parsed.version || (OK_DISAMBIGUATION.test((o.r.disambiguation ?? "").trim()) || !(o.r.disambiguation ?? "").trim()) && !hasVersionWord(o.r.title)));
+    .filter((o) => o.good.length && (parsed.version || (OK_DISAMBIGUATION.test((o.r.disambiguation ?? "").trim()) || !(o.r.disambiguation ?? "").trim()) && !versionWord(o.r)));
   if (!studio.length) return { state: "silent", reason: "no studio recording", candidates: candidates(c), parsed };
   if (new Set(studio.map((o) => lead(o.r))).size > 1) return { state: "silent", reason: "different artists", candidates: candidates(c), parsed };
   const full = studio.filter((o) => !/clean/i.test(o.r.disambiguation ?? ""));

@@ -1,0 +1,227 @@
+/**
+ * FR-CORE-1, version 7 (T1.2; PRD Amendments of 2026-11-10, A2). Silent unless certain, as before.
+ *
+ * 1. Full-width punctuation is read as its half-width twin; 《》 and 【】 are kept as marks.
+ * 2. If the title holds 《…》: the text inside the first pair is the track. Everything outside it,
+ *    with any 【…】 tag removed, gives the artist candidates. MusicBrainz is searched for the track
+ *    (official album, single or EP). A recording is a candidate only if one of its credited artists,
+ *    or a listed alias of one, stands in the title outside the 《》 as a whole word (Latin) or an
+ *    unbroken run (Chinese, Japanese, Korean). The studio rule and the silences then apply unchanged.
+ * 3. If the title holds no 《…》: version 6.3 applies unchanged.
+ *
+ * How it is built (recorded in the build log): for a 《》 title, version 6.3 runs first, exactly as
+ * it was, so every title it matched still matches the same recording. Only when it stays silent for
+ * want of a candidate does the new part run. Everything 6.3 accepts on the artist, version 7 accepts
+ * too: a name the title gives whole is also a credited name standing in the title.
+ */
+import { getJson } from "../sources/http";
+import { MB, mbGate, OFFICIAL } from "../sources/musicbrainz";
+import { parseTitle, stripNotes, type Parsed } from "./parse";
+import { hasVersionWord, normalise, type MbRecording } from "./studio";
+import { decide, fetchFor, GENERIC_TITLES, settle, toCandidate, type MatchDeps, type MatchResult } from "./v6";
+
+export const RULE_VERSION = "v7.0";
+export type { Candidate, MatchDeps, MatchResult, Silence } from "./v6";
+
+/** Step 1: full-width punctuation read as its half-width twin. 《》 and 【】 are left as they are. */
+const TWINS: Record<string, string> = { "，": ",", "／": "/", "：": ":", "（": "(", "）": ")", "！": "!", "＆": "&", "　": " ", "｜": "|", "－": "-", "＇": "'", "＂": '"' };
+export const halfWidth = (s: string) => s.replace(/[，／：（）！＆　｜－＇＂]/g, (ch) => TWINS[ch]!);
+
+export interface Book {
+  /** The text inside the first 《…》 pair. */
+  track: string;
+  /** Everything outside the pair, tags and quoted lines removed: where an artist's name may stand. */
+  outside: string;
+}
+
+/**
+ * Step 2's reading of a title. A quoted line (a lyric or a tagline in ‘…’, “…”, '…' or "…") is not
+ * where a name stands, so it is left out of the outside text.
+ */
+export function readBook(title: string): Book | null {
+  const t = halfWidth(title);
+  const open = t.indexOf("《");
+  if (open < 0) return null;
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < t.length; i++) {
+    if (t[i] === "《") depth++;
+    else if (t[i] === "》" && --depth === 0) {
+      close = i;
+      break;
+    }
+  }
+  if (close < 0) return null;
+  const track = t.slice(open + 1, close).trim();
+  const outside = `${t.slice(0, open)} ${t.slice(close + 1)}`
+    .replace(/【[^】]*】/g, " ")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/‘[^’]*’|“[^”]*”|"[^"]*"|(?<![\p{L}\p{N}])'[^']*'(?![\p{L}\p{N}])/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return track ? { track, outside } : null;
+}
+
+const FEAT = /\s*\((?:feat\.?|with|ft\.?|prod\.?)[^)]*\)/gi;
+/** Words in a bracket that make it a version, never a note to drop. */
+const VERSION_IN_BRACKET = /\d{4}|版|mix|edit|live|remix|reprise|interlude|part|pt\.?|skit|intro|outro|radio|extended|session|bonus|demo|acoustic|instrumental|karaoke|cover|version|伴奏|现场|演唱会|翻唱/i;
+
+/** A title without its trailing brackets, when none of them names a version: "満ちてゆく (心海渐满)", "Sunflower (Spider-Man: Into the Spider-Verse)". */
+export function bare(title: string): string {
+  let t = halfWidth(title).replace(FEAT, "").trim();
+  for (;;) {
+    const m = /^(.*\S)\s*\(([^()]*)\)$/.exec(t);
+    if (!m || VERSION_IN_BRACKET.test(m[2]!)) return t;
+    t = m[1]!.trim();
+  }
+}
+
+/** The ways a track may be written, most exact first. */
+export function trackForms(track: string): string[] {
+  const exact = stripNotes(halfWidth(track).replace(FEAT, "")).trim();
+  return [...new Set([exact, bare(exact)].filter(Boolean))];
+}
+
+const hasCjk = (s: string) => /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]/.test(s);
+/** Words: a run of Chinese, Japanese or Korean characters is one word, and never joins the Latin letters beside it. */
+const WORDS = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+|(?:(?![\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}])[\p{L}\p{N}])+/gu;
+const tokens = (s: string) => s.normalize("NFKC").toLowerCase().match(WORDS) ?? [];
+
+/**
+ * Does this name stand in the text? A Latin name must be whole words in a row ("DEN" never stands in
+ * "Garden"); a Chinese, Japanese or Korean name must be an unbroken run inside one stretch of the
+ * text. No name shorter than two characters ever counts.
+ */
+export function stands(name: string, outside: string): boolean {
+  const n = normalise(name);
+  if ([...n].length < 2) return false;
+  if (hasCjk(name)) {
+    return outside.split(/[\s,/&、|]+/).some((part) => normalise(part).includes(n));
+  }
+  const want = tokens(name);
+  const have = tokens(outside);
+  if (!want.length) return false;
+  for (let i = 0; i + want.length <= have.length; i++) if (want.every((w, j) => have[i + j] === w)) return true;
+  return false;
+}
+
+type Credit = NonNullable<MbRecording["artist-credit"]>[number];
+/** Every name a credited artist goes by: as credited, the artist's own name, each listed alias, and without a leading "The". */
+export function namesOf(a: Credit): string[] {
+  const names = [a.name, a.artist.name, ...(a.artist.aliases ?? []).map((x) => x.name)];
+  return [...new Set(names.flatMap((n) => [n, n.replace(/^the\s+/i, "")]).filter(Boolean))];
+}
+
+export const artistStands = (r: MbRecording, outside: string) => (r["artist-credit"] ?? []).some((a) => namesOf(a).some((n) => stands(n, outside)));
+
+const GUEST = /feat|ft\.|featuring|with.*guest/i;
+/**
+ * A recording co-credited to an artist the title does not name is another version: "Summer" by Joe
+ * Hisaishi & Wiener Symphoniker (2024) is not the "Summer" a video titled with Joe Hisaishi alone
+ * plays. Every credited artist must stand in the title, inside or outside the 《》, except a featured
+ * guest (a credit joined by "feat."), whom uploaders often leave out or write in another script.
+ */
+export function noUnnamedCoArtist(r: MbRecording, book: Book): boolean {
+  const credit = r["artist-credit"] ?? [];
+  const text = `${book.outside} ${book.track}`;
+  return credit.every((a, i) => (i > 0 && GUEST.test(credit[i - 1]!.joinphrase ?? "")) || namesOf(a).some((n) => stands(n, text)));
+}
+
+/** A recording's title against the track: equal as written (notes stripped), or equal with brackets that name no version dropped. */
+export function sameTitle(recordingTitle: string, forms: string[], loose = true): boolean {
+  const written = stripNotes(halfWidth(recordingTitle));
+  const theirs = new Set(loose ? [normalise(written), normalise(bare(written))] : [normalise(written)]);
+  return forms.some((f) => theirs.has(normalise(f)));
+}
+
+/** The names outside the 《》 that may be an artist, for the searches sent: split on the usual marks and on a dash. */
+export function outsideParts(outside: string): string[] {
+  const parts = outside
+    .split(/\s*(?:&|、|,|\/|\||\sx\s|\sfeat\.?\s|\sft\.?\s|\s[-–—]+\s?|\s?[-–—]+\s|[()])\s*/i)
+    .map((s) => s.trim().replace(/^[\s\-–—]+|[\s\-–—]+$/g, ""))
+    .filter(Boolean);
+  // A stretch mixing scripts ("用百万级豪华装备试听The Weeknd", "朱旭BooBoo") is also tried as its parts.
+  const out: string[] = [];
+  for (const p of parts) {
+    out.push(p);
+    const runs = p.match(/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]+|[^\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]+/g) ?? [];
+    if (runs.length > 1) for (const r of runs) out.push(r.trim());
+  }
+  return [...new Set(out.filter((s) => [...s.replace(/\s/g, "")].length >= 2))];
+}
+
+const esc = (s: string) => s.replace(/["\\]/g, "\\$&");
+/** At most this many names are asked for beside the track, all in one search. */
+export const MAX_NAMES = 6;
+
+/**
+ * The MusicBrainz searches the new part sends, in order: for each way the track may be written, one
+ * search for the track by any of the names read outside the 《》, then one for the track alone. Each
+ * asks for official albums, singles and EPs only. One search for all the names keeps the calls few:
+ * a video whose song MusicBrainz does not hold is answered in two calls for each way of writing it.
+ */
+export function searchesV7(book: Book): string[] {
+  const out: string[] = [];
+  const names = outsideParts(book.outside).slice(0, MAX_NAMES);
+  for (const f of trackForms(book.track)) {
+    if (names.length) out.push(`recording:"${esc(f)}" AND (${names.map((n) => `artist:"${esc(n)}"`).join(" OR ")}) AND ${OFFICIAL}`);
+    out.push(`recording:"${esc(f)}" AND ${OFFICIAL}`);
+  }
+  return [...new Set(out)];
+}
+
+export const searchUrlV7 = (q: string) => `${MB}/recording?query=${encodeURIComponent(q)}&limit=100&fmt=json`;
+
+/** The new part of the rule, over recordings already fetched: pure, so fixtures can replay it. */
+export function decideV7(parsed: Parsed, book: Book, found: MbRecording[]): MatchResult {
+  const byId = new Map(found.map((r) => [r.id, r]));
+  const all = [...byId.values()];
+  const forms = trackForms(book.track);
+  if (forms.every((f) => GENERIC_TITLES.has(normalise(f)))) return { state: "silent", reason: "a generic title", candidates: all.slice(0, 8).map(toCandidate), parsed };
+  const mayBe = all.filter((r) => (r.score ?? 0) >= 85 && artistStands(r, book.outside) && noUnnamedCoArtist(r, book));
+  // A recording whose title is the track as written comes first. Only when there is none does a title
+  // with a bracket that names no version count ("Sunflower (Spider-Man: Into the Spider-Verse)"); so
+  // "Heat Waves (stripped back)" never stands beside "Heat Waves".
+  const exact = mayBe.filter((r) => sameTitle(r.title, forms, false));
+  const c = exact.length ? exact : mayBe.filter((r) => sameTitle(r.title, forms));
+  if (!c.length) return { state: "silent", reason: "no candidate", candidates: all.slice(0, 8).map(toCandidate), parsed };
+  return settle(parsed, c, (r) => hasVersionWord(exact.length ? r.title : bare(r.title)));
+}
+
+export async function fetchV7(book: Book, d: MatchDeps): Promise<MbRecording[]> {
+  const get = async (q: string) => ((await getJson(searchUrlV7(q), d.gate ?? mbGate, d.fetchFn, d.clock, d.cache)) as { recordings?: MbRecording[] }).recordings ?? [];
+  const found: MbRecording[] = [];
+  for (const q of searchesV7(book)) {
+    const rs = await get(q);
+    found.push(...rs);
+    // Stop as soon as a search holds a recording that could be the song: fewer calls, sooner words.
+    if (rs.some((r) => (r.score ?? 0) >= 85 && sameTitle(r.title, trackForms(book.track)) && artistStands(r, book.outside))) break;
+  }
+  return found;
+}
+
+/**
+ * Version 6.3 searched with the first name it read, and for these titles that name is often the
+ * uploader's phrase, so its silence may only mean its search was thin. The new part runs after any
+ * silence of 6.3's except the two that are about the title itself.
+ */
+const FINAL: ReadonlySet<string> = new Set(["the title names no song", "a generic title"]);
+
+export async function matchTitle(title: string, d: MatchDeps): Promise<MatchResult> {
+  const parsed = parseTitle(title);
+  const book = readBook(title);
+  const first = parsed.queries.length ? decide(parsed, await fetchFor(parsed, d)) : decide(parsed, []);
+  if (!book || first.state === "certain" || FINAL.has(first.reason)) return first;
+  const second = decideV7(parsed, book, await fetchV7(book, d));
+  // Keep 6.3's candidates for Fix when the new part found none of its own.
+  return second.state === "silent" && !second.candidates.length ? { ...second, candidates: first.candidates } : second;
+}
+
+/** FR-CORE-1 v7, step 5: why no song is named, in one line for the card. */
+export function silenceLine(r: MatchResult): string {
+  if (r.state !== "silent") return "";
+  const readTrack = r.parsed.queries.length > 0 || !!readBook(r.parsed.title);
+  return readTrack && r.reason === "no candidate" ? "This song is not on MusicBrainz." : "I couldn't read this title.";
+}
+
+export { isRemovedVideoTitle, REMOVED_VIDEO_TITLES } from "./removed";
