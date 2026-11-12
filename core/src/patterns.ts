@@ -6,6 +6,7 @@
  * Thresholds are the PRD's. A line that only restates one answer is never built; no line rests on one
  * song. A release date the person marked wrong takes that song out of every date line.
  */
+import { isAlbum } from "./model";
 import { breaches } from "./checks";
 import { keyName, type Key } from "./design/key-colour";
 import type { CreditRole, Part, Song, Source } from "./model";
@@ -44,7 +45,9 @@ const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eig
 export const num = (n: number) => (n >= 0 && n <= 10 ? WORDS[n]! : String(n));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
-const songLabel = (s: Song) => `${s.facts.title} · ${s.facts.artist_credit}`;
+const songLabel = (s: Song) => `${s.facts.title} · ${s.facts.artist_credit}${isAlbum(s.entry) ? " (album)" : ""}`;
+/** FR-T9.1: albums count as records; a line that holds one says "records", never "songs". */
+const what = (ss: Song[]) => (ss.some((s) => isAlbum(s.entry)) ? "records" : "songs");
 const YOUR_ANSWER: Source = { label: "Your answer" };
 
 function offered(kind: string, values: Record<string, string> = {}): Pick<PatternLine, "readings" | "question"> {
@@ -188,7 +191,8 @@ function tempoLine(songs: Song[]): PatternLine | null {
 // ---- The part named most ----------------------------------------------------------------------
 
 function partLine(songs: Song[]): PatternLine | null {
-  const answered = songs.filter((s) => s.entry.comes_back_for !== "unanswered" && s.entry.comes_back_for !== "not sure");
+  // FR-T9.1: an album's answer comes from its own options (FR-T9.2), so only songs count here.
+  const answered = songs.filter((s) => !isAlbum(s.entry) && s.entry.comes_back_for !== "unanswered" && s.entry.comes_back_for !== "not sure");
   const m = answered.length;
   if (m < 3) return null;
   const counts = new Map<Part, number>();
@@ -232,7 +236,7 @@ function releaseLine(songs: Song[]): PatternLine | null {
     id: `release-window:${y1}-${y2}:${best.length}/${n}`,
     kind: "release-window",
     // "Four of your four songs" reads as a slip: a whole set is "All four of your songs".
-    pattern: best.length === n ? `All ${num(n)} of your songs came out ${when}.` : `${cap(num(best.length))} of your ${num(n)} songs came out ${when}.`,
+    pattern: best.length === n ? `All ${num(n)} of your ${what(d)} came out ${when}.` : `${cap(num(best.length))} of your ${num(n)} ${what(d)} came out ${when}.`,
     evidence: d.map((s) => ({
       entry_id: s.entry.entry_id,
       text: `${songLabel(s)} · first released in ${s.facts.first_release_year}, according to ${s.facts.date_source.label}`,
@@ -246,26 +250,32 @@ function releaseLine(songs: Song[]): PatternLine | null {
 
 // ---- Found you later --------------------------------------------------------------------------
 
-/** The earliest year an answer allows, so "two or more years later" is never claimed on a guess. */
-function foundNoEarlierThan(found: Song["entry"]["found_me"], nowYear: number): number | undefined {
+/**
+ * The earliest year an answer allows, so "two or more years later" is never claimed on a guess.
+ * FR-T9.8: "the last three years" is this year and the two before it; "longer ago" has a floor only
+ * when he gave a year.
+ */
+export function foundNoEarlierThan(entry: Song["entry"], nowYear: number): number | undefined {
+  const found = entry.found_me;
   if (found === "this month" || found === "this year") return nowYear;
-  if (found === "a year or two ago") return nowYear - 2;
-  return undefined; // "longer ago" has no floor; "can't say" and unanswered say nothing
+  if (found === "the last three years") return nowYear - 2;
+  if (found === "longer ago" && entry.found_year) return entry.found_year;
+  return undefined; // "can't say" and unanswered say nothing
 }
 
 function foundLaterLine(songs: Song[], now: Date): PatternLine | null {
   const later = dated(songs).filter((s) => {
-    const f = foundNoEarlierThan(s.entry.found_me, now.getFullYear());
+    const f = foundNoEarlierThan(s.entry, now.getFullYear());
     return f !== undefined && f - s.facts.first_release_year! >= 2;
   });
   if (later.length < 2) return null;
   return {
     id: `found-later:${later.length}`,
     kind: "found-later",
-    pattern: `${cap(num(later.length))} of your songs found you at least two years after they came out.`,
+    pattern: `${cap(num(later.length))} of your ${what(later)} found you at least two years after they came out.`,
     evidence: later.map((s) => ({
       entry_id: s.entry.entry_id,
-      text: `${songLabel(s)} · first released in ${s.facts.first_release_year}, according to ${s.facts.date_source.label} · found you: ${s.entry.found_me} (your answer)`,
+      text: `${songLabel(s)} · first released in ${s.facts.first_release_year}, according to ${s.facts.date_source.label} · found you: ${s.entry.found_me}${s.entry.found_year ? `, about ${s.entry.found_year}` : ""} (your answer)`,
       source: s.facts.date_source,
       date_of: s.facts.recording_id,
     })),

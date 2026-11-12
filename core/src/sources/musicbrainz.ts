@@ -71,7 +71,7 @@ export function candidatesFrom(recordings: MbRecording[], typed: string): Candid
   return ordered.slice(0, MAX_CANDIDATES).map(({ date, ...c }) => ({ ...c, year: /^\d{4}/.test(date) && !date.startsWith("9999") ? Number(date.slice(0, 4)) : undefined }));
 }
 
-const lucene = (s: string) => s.replace(/([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g, "\\$1");
+export const lucene = (s: string) => s.replace(/([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g, "\\$1");
 
 /**
  * Only recordings that appear on an official album, single or EP. A recording that is also on

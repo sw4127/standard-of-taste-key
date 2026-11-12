@@ -9,8 +9,30 @@ export const PARTS = [
 ] as const;
 export type Part = (typeof PARTS)[number];
 
-export const FOUND = ["this month", "this year", "a year or two ago", "longer ago", "can't say"] as const;
+/** FR-T9.2 (changed 2026-11-10): what a person may come back for in a whole album. */
+export const ALBUM_PARTS = ["one song on it", "how it flows from start to finish", "its overall sound", "its words", "can't say"] as const;
+export type AlbumPart = (typeof ALBUM_PARTS)[number];
+
+/**
+ * FR-T9.8 (2026-11-10): when a record found the person, as nested ranges, each inside the next, so no
+ * answer is two things at once. The person taps the narrowest range that is true; "can't say" sits beside.
+ */
+export const FOUND = ["this month", "this year", "the last three years", "longer ago", "can't say"] as const;
 export type Found = (typeof FOUND)[number];
+/** The ranges only, narrowest first; each lies inside the next. */
+export const FOUND_RANGES = ["this month", "this year", "the last three years", "longer ago"] as const;
+
+/** FR-T9.8: answers stored under the earlier five options are read as the PRD says. */
+export function readFound(old: string): Found | "unanswered" {
+  if (old === "a year or two ago") return "the last three years";
+  return (FOUND as readonly string[]).includes(old) ? (old as Found) : "unanswered";
+}
+
+/** The ranges that light with a pick: the one tapped and every wider one. */
+export const litRanges = (f: Found | "unanswered"): Found[] => {
+  const i = (FOUND_RANGES as readonly string[]).indexOf(f);
+  return i < 0 ? [] : [...FOUND_RANGES.slice(i)];
+};
 
 /** Where a fact came from: a page that states it, or the example data (which states nothing real). */
 export interface Source {
@@ -20,7 +42,11 @@ export interface Source {
 
 /** D2 + the D3 facts a pattern needs, gathered per recording. */
 export interface SongFacts {
+  /** A recording's MusicBrainz ID; for an album (FR-T9.1), "album:" and its release group's ID. */
   recording_id: string;
+  /** FR-T9.1: an album is stored as an album, never as its title track. */
+  kind?: "album";
+  release_group_id?: string;
   title: string;
   artist_credit: string;
   lead_artist_id: string;
@@ -47,10 +73,17 @@ export interface NamedSong {
   person_id: string;
   typed_text: string;
   recording_id: string;
-  comes_back_for: Part | "unanswered";
+  comes_back_for: Part | AlbumPart | "unanswered";
   found_me: Found | "unanswered";
+  /** FR-T9.8: for "longer ago", the year he gave, if any. */
+  found_year?: number;
+  /** FR-T9.1: a song or an album. Rows saved before 2026-11-12 have none and are songs. */
+  kind?: "song" | "album";
   entered_at: string; // ISO
 }
+
+export const isAlbum = (x: { kind?: string }) => x.kind === "album";
+export const albumId = (release_group_id: string) => `album:${release_group_id}`;
 
 /** D11 Listening History, as read from a Spotify export (every other field dropped at parse). */
 export interface HistoryRow {

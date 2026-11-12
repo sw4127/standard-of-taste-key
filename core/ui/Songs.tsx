@@ -5,7 +5,9 @@
  * numbered, ordered or scored (rule 5). A second person's songs (for the swap test) are kept apart.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FOUND, PARTS, type Found, type NamedSong, type Part, type SongFacts } from "../src/model";
+import { ALBUM_PARTS, isAlbum, PARTS, type AlbumPart, type NamedSong, type Part, type SongFacts } from "../src/model";
+import { albumFacts, searchAlbums, type AlbumCandidate } from "../src/sources/albums";
+import { BirthYear, FoundBar, SeveralAtOnce } from "./Naming";
 import { linesAcross, MIN_SONGS_FOR_LINES } from "../src/patterns";
 import { theirName } from "../src/firstwords";
 import { noteAvailable } from "../src/note";
@@ -40,20 +42,29 @@ function Choices<T extends string>({ legend, options, value, onPick }: { legend:
 }
 
 function SongEntry({ entry, facts, open, onToggle }: { entry: NamedSong; facts: SongFacts; open: boolean; onToggle: () => void }) {
-  const answers = [entry.comes_back_for, entry.found_me].filter((a) => a !== "unanswered");
+  const album = isAlbum(entry);
+  const found = entry.found_me === "longer ago" && entry.found_year ? `longer ago, about ${entry.found_year}` : entry.found_me;
+  const answers = [entry.comes_back_for, found].filter((a) => a !== "unanswered");
   return (
-    <li className={`card stack${edgeClass(facts.key)}`} style={edgeStyle(facts.key)}>
+    <li className={`card stack${album ? "" : edgeClass(facts.key)}`} style={album ? {} : edgeStyle(facts.key)}>
       <p className="meta">
         <span className="song-name">{facts.title}</span> · {facts.artist_credit} · {facts.first_release_year ?? "year not listed"}
+        {album ? " · album" : ""}
       </p>
-      <p className="chip-row">
-        <KeyChip k={facts.key} />
-        {facts.bpm && <span className="meta">{Math.round(facts.bpm.value)} BPM</span>}
-      </p>
+      {!album && (
+        <p className="chip-row">
+          <KeyChip k={facts.key} />
+          {facts.bpm && <span className="meta">{Math.round(facts.bpm.value)} BPM</span>}
+        </p>
+      )}
       {open ? (
         <>
-          <Choices legend="What do you come back for?" options={PARTS} value={entry.comes_back_for} onPick={(v) => actions.answer(entry.entry_id, "comes_back_for", v as Part | "unanswered")} />
-          <Choices legend="When did this song find you?" options={FOUND} value={entry.found_me} onPick={(v) => actions.answer(entry.entry_id, "found_me", v as Found | "unanswered")} />
+          {album ? (
+            <Choices legend="What do you come back for?" options={ALBUM_PARTS} value={entry.comes_back_for as AlbumPart | "unanswered"} onPick={(v) => actions.answer(entry.entry_id, "comes_back_for", v as AlbumPart | "unanswered")} />
+          ) : (
+            <Choices legend="What do you come back for?" options={PARTS} value={entry.comes_back_for as Part | "unanswered"} onPick={(v) => actions.answer(entry.entry_id, "comes_back_for", v as Part | "unanswered")} />
+          )}
+          <FoundBar entry={entry} noun={album ? "album" : "song"} />
           <p className="meta">Both are optional. Tap again to clear.</p>
         </>
       ) : (
@@ -71,7 +82,7 @@ function SongEntry({ entry, facts, open, onToggle }: { entry: NamedSong; facts: 
   );
 }
 
-type Search = { state: "idle" } | { state: "looking" } | { state: "found"; results: Candidate[] } | { state: "failed" };
+type Search = { state: "idle" } | { state: "looking" } | { state: "found"; results: Candidate[]; albums: AlbumCandidate[] } | { state: "failed" };
 
 function SongSearch({ person, full, have, onAdded }: { person: string; full: boolean; have: Set<string>; onAdded: (entry_id: string) => void }) {
   const [text, setText] = useState("");
@@ -89,10 +100,13 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
     }
     setSearch({ state: "looking" });
     const t = setTimeout(() => {
-      searchSongs(q, { fetchFn }).then(
-        (results) => mine === seq.current && setSearch({ state: "found", results }),
-        () => mine === seq.current && setSearch({ state: "failed" }),
-      );
+      // FR-T9.1: songs and albums, one search after the other (one call per 1.2 s to MusicBrainz).
+      searchSongs(q, { fetchFn })
+        .then(async (results) => [results, await searchAlbums(q, { fetchFn }).catch(() => [] as AlbumCandidate[])] as const)
+        .then(
+          ([results, albums]) => mine === seq.current && setSearch({ state: "found", results, albums }),
+          () => mine === seq.current && setSearch({ state: "failed" }),
+        );
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [text]);
@@ -118,11 +132,24 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
     if (added) onAdded(added);
   };
 
+  const pickAlbum = (a: AlbumCandidate) => {
+    setProblem(null);
+    const facts = albumFacts(a);
+    if (have.has(facts.recording_id)) {
+      setProblem(`${a.title} is already on the list.`);
+      return;
+    }
+    const added = actions.addSong(facts, text, person, "my pick");
+    setText("");
+    if (added) onAdded(added);
+  };
+
   const results = search.state === "found" ? search.results : [];
+  const albums = search.state === "found" ? search.albums : [];
   return (
     <div className="card stack">
       <label className="label" htmlFor="song-search">
-        A song, and its artist if you know it
+        A song or an album, and its artist if you know it
       </label>
       <input
         id="song-search"
@@ -136,15 +163,23 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
       />
       {search.state === "looking" && <p className="meta" role="status">Looking in MusicBrainz…</p>}
       {search.state === "failed" && <p className="meta" role="status">Couldn't reach MusicBrainz. Try again in a moment.</p>}
-      {search.state === "found" && results.length === 0 && (
-        <p className="meta" role="status">MusicBrainz has no studio song matching “{text.trim()}”. Adding the artist&#39;s name can help.</p>
+      {search.state === "found" && results.length === 0 && albums.length === 0 && (
+        <p className="meta" role="status">MusicBrainz has no studio song or album matching “{text.trim()}”. Adding the artist&#39;s name can help.</p>
       )}
-      {results.length > 0 && (
-        <ul className="plain stack" aria-label="Songs found">
+      {(results.length > 0 || albums.length > 0) && (
+        <ul className="plain stack" aria-label="Songs and albums found">
+          {albums.map((a) => (
+            <li key={a.key}>
+              <button type="button" className="act" disabled={adding !== null} onClick={() => pickAlbum(a)}>
+                album: {a.title} · {a.artist_credit}
+                {a.year ? ` · ${a.year}` : ""}
+              </button>
+            </li>
+          ))}
           {results.map((c) => (
             <li key={c.key}>
               <button type="button" className="act" disabled={adding !== null} onClick={() => pick(c)}>
-                {c.title} · {c.artist_credit}
+                song: {c.title} · {c.artist_credit}
                 {c.year ? ` · ${c.year}` : ""}
               </button>
               {adding === c.key && <span className="meta" role="status"> Finding its studio recording…</span>}
@@ -153,6 +188,7 @@ function SongSearch({ person, full, have, onAdded }: { person: string; full: boo
         </ul>
       )}
       {problem && <p className="meta" role="status">{problem}</p>}
+      {!full && <SeveralAtOnce person={person} room={MAX_SONGS - have.size} />}
     </div>
   );
 }
@@ -226,7 +262,8 @@ export function Songs() {
           ))}
         </div>
       )}
-      <p className="line">{who ? `Songs ${theirName(who.label)} named. Any order. No ranking.` : "Name a few songs that come to mind. Any order. No ranking."}</p>
+      <p className="line">{who ? `Songs and albums ${theirName(who.label)} named. Any order. No ranking.` : "Name a few songs or albums that come to mind. Any order. No ranking."}</p>
+      {!who && <p className="record">Any songs or albums that come to mind will do. They need not be your best.</p>}
       </div>
 
       <SongSearch person={person} full={full} have={new Set(songs.map((s) => s.facts.recording_id))} onAdded={setOpen} />
@@ -266,6 +303,7 @@ export function Songs() {
           {lines.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
         </div>
       )}
+      {person === ME && <BirthYear value={st.birth_year} />}
       {person === ME && <AddPerson onAdded={setPerson} />}
     </section>
   );

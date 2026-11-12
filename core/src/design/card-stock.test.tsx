@@ -101,7 +101,7 @@ describe("what can be pressed (design rule 8)", () => {
   });
   it("the action colour is used only on what can be pressed and on the focus ring", () => {
     const users = rules.filter((r) => /var\(--action\)/.test(r.body)).map((r) => r.selector.replace(/\s+/g, " "));
-    expect(users.sort()).toEqual([".act", ".act-fill", ":focus-visible"]);
+    expect(users.sort()).toEqual([".act", ".act-fill", ".found-range", ":focus-visible"]);
   });
   it("a link is underlined, and the filled button is a flat fill in the action colour", () => {
     expect(/\n\.act\s*{([^}]*)}/.exec(css)![1]!).toMatch(/text-decoration:\s*underline;/);

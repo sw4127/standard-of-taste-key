@@ -5,7 +5,7 @@
  * IndexedDB in this browser (src/storage.ts) and saved after every change; read once when a page opens.
  */
 import { useSyncExternalStore } from "react";
-import type { Found, HistoryRow, KeyRow, NamedSong, NextRow, Part, PlayRow, Song, SongFacts } from "../src/model";
+import { readFound, type AlbumPart, type Found, type HistoryRow, type KeyRow, type NamedSong, type NextRow, type Part, type PlayRow, type Song, type SongFacts } from "../src/model";
 import type { Choice, Words } from "../src/note";
 import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadNexts, loadPlays, openDb, putHistory, putKey, putNext, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
@@ -30,6 +30,8 @@ export interface State {
   nexts: NextRow[];
   story_shown_count: number;
   story_last_shown_on?: string;
+  /** FR-T9.8: optional, kept in this browser, used only to say how old he was when a record found him. */
+  birth_year?: number;
   installed_at?: string;
   last_erased_at?: string;
 }
@@ -76,6 +78,7 @@ export function toSnapshot(s: State): Snapshot {
     settings: [{
       settings_id: 1, installed_at: s.installed_at ?? now(), ...(s.last_erased_at ? { last_erased_at: s.last_erased_at } : {}),
       story_shown_count: s.story_shown_count, ...(s.story_last_shown_on ? { story_last_shown_on: s.story_last_shown_on } : {}),
+      ...(s.birth_year ? { birth_year: s.birth_year } : {}),
     }],
     events: s.events,
     people,
@@ -97,7 +100,8 @@ export function fromSnapshot(snap: Snapshot): State {
   return {
     ready: true,
     people: byTime(snap.people, (p) => p.loaded_at),
-    songs: byTime(snap.songs, (e) => e.entered_at),
+    // FR-T9.8: answers saved under the earlier five options are read as the nested ranges.
+    songs: byTime(snap.songs, (e) => e.entered_at).map((e) => ({ ...e, found_me: readFound(e.found_me) })),
     facts,
     matchedBy,
     disputed: snap.recordings.filter((r) => r.date_disputed).map((r) => r.recording_id),
@@ -110,6 +114,7 @@ export function fromSnapshot(snap: Snapshot): State {
     nexts: [],
     story_shown_count: settings?.story_shown_count ?? 0,
     story_last_shown_on: settings?.story_last_shown_on,
+    birth_year: settings?.birth_year,
     installed_at: settings?.installed_at,
     last_erased_at: settings?.last_erased_at,
   };
@@ -174,7 +179,7 @@ export const actions = {
     if (mine.length >= MAX_SONGS || mine.some((s) => s.recording_id === facts.recording_id)) return null;
     const entry: NamedSong = {
       entry_id: id(), person_id: person, typed_text: typed, recording_id: facts.recording_id,
-      comes_back_for: "unanswered", found_me: "unanswered", entered_at: now(),
+      comes_back_for: "unanswered", found_me: "unanswered", entered_at: now(), ...(facts.kind === "album" ? { kind: "album" as const } : {}),
     };
     set({
       ...state,
@@ -188,12 +193,21 @@ export const actions = {
   removeSong(entry_id: string) {
     set({ ...state, songs: state.songs.filter((s) => s.entry_id !== entry_id) });
   },
-  answer<F extends "comes_back_for" | "found_me">(entry_id: string, field: F, value: F extends "comes_back_for" ? Part | "unanswered" : Found | "unanswered") {
+  answer<F extends "comes_back_for" | "found_me">(entry_id: string, field: F, value: F extends "comes_back_for" ? Part | AlbumPart | "unanswered" : Found | "unanswered") {
     set({
       ...state,
       events: [...state.events, ev(field === "comes_back_for" ? "part_answered" : "found_answered", { entry_id, value: String(value) })],
-      songs: state.songs.map((s) => (s.entry_id === entry_id ? { ...s, [field]: value } : s)),
+      // FR-T9.8: one range is stored, never two; a year belongs only to "longer ago".
+      songs: state.songs.map((s) => (s.entry_id === entry_id ? { ...s, [field]: value, ...(field === "found_me" && value !== "longer ago" ? { found_year: undefined } : {}) } : s)),
     });
+  },
+  /** FR-T9.8: the optional year for "longer ago". */
+  foundYear(entry_id: string, year: number | undefined) {
+    set({ ...state, songs: state.songs.map((s) => (s.entry_id === entry_id && s.found_me === "longer ago" ? { ...s, found_year: year } : s)) });
+  },
+  /** FR-T9.8: the optional birth year, kept in this browser. */
+  setBirthYear(year: number | undefined) {
+    set({ ...state, birth_year: year });
   },
   disputeDate(recording_id: string) {
     if (!state.disputed.includes(recording_id)) set({ ...state, disputed: [...state.disputed, recording_id] });

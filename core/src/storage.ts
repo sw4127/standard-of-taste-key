@@ -41,6 +41,9 @@ export interface RecordingRow {
   date_disputed: boolean;
   matched_by: "rule" | "my fix" | "my pick";
   credits_fetched_at: string;
+  /** FR-T9.1: an album's row (its ID is "album:" and the release group's ID). */
+  kind?: "album";
+  release_group_id?: string;
 }
 
 /** D3. */
@@ -101,6 +104,8 @@ export interface Settings {
   /** FR-T3.4: how often Sancho's story has shown by itself, and on which local day last. */
   story_shown_count?: number;
   story_last_shown_on?: string;
+  /** FR-T9.8: the year the person was born, if they gave it; kept in this browser only. */
+  birth_year?: number;
 }
 
 export interface Snapshot {
@@ -142,6 +147,7 @@ export function toRows(f: SongFacts, matched_by: RecordingRow["matched_by"], at:
       recording_id: id, title: f.title, artist_credit: f.artist_credit, lead_artist_id: f.lead_artist_id, lead_artist: f.lead_artist,
       first_release_date: f.first_release_year !== undefined ? String(f.first_release_year) : undefined,
       date_source: f.date_source, date_disputed: f.date_disputed, matched_by, credits_fetched_at: at,
+      ...(f.kind ? { kind: f.kind } : {}), ...(f.release_group_id ? { release_group_id: f.release_group_id } : {}),
     },
     facts,
   };
@@ -159,6 +165,7 @@ export function fromRows(r: RecordingRow, facts: FactRow[]): SongFacts {
   const t = mine.find((x) => x.kind === "tempo_bpm");
   return {
     recording_id: r.recording_id, title: r.title, artist_credit: r.artist_credit, lead_artist_id: r.lead_artist_id, lead_artist: r.lead_artist,
+    ...(r.kind ? { kind: r.kind } : {}), ...(r.release_group_id ? { release_group_id: r.release_group_id } : {}),
     first_release_year: r.first_release_date ? Number(r.first_release_date.slice(0, 4)) : undefined,
     date_source: r.date_source, date_disputed: r.date_disputed,
     key: parsed && k ? { ...parsed, strength: k.confidence ?? 0, source: src(k) } : undefined,

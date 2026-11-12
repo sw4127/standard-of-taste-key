@@ -107,8 +107,8 @@ describe("found you later", () => {
   it("two or more songs found at least two years after release, judged on the earliest year the answer allows", () => {
     const songs = [
       named(byTitle("Copper Rain"), "unanswered", "this year"), // 2014 → 2026
-      named(byTitle("Saltwind"), "unanswered", "a year or two ago"), // 2008 → no earlier than 2024
-      named(byTitle("Lantern Year"), "unanswered", "a year or two ago"), // 2023 → 2024: not two years
+      named(byTitle("Saltwind"), "unanswered", "the last three years"), // 2008 → no earlier than 2024
+      named(byTitle("Lantern Year"), "unanswered", "the last three years"), // 2023 → 2024: not two years
     ];
     const line = linesAcross(songs, NOW).find((l) => l.kind === "found-later")!;
     expect(line.entry_ids).toHaveLength(2);
