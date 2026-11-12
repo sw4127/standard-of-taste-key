@@ -3,5 +3,17 @@
   "framework": null,
   "installCommand": "npm ci",
   "buildCommand": "npm run build:web",
-  "outputDirectory": "web/out"
+  "outputDirectory": "web/out",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://musicbrainz.org https://acousticbrainz.org https://www.wikidata.org https://api.anthropic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        },
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    }
+  ]
 }

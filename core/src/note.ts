@@ -5,6 +5,7 @@
  */
 import type { Key } from "./design/key-colour";
 import type { Evidence } from "./patterns";
+import type { ReadingRow } from "./reading/rows";
 
 export type ChoiceValue = "first" | "second" | "neither";
 
@@ -37,11 +38,23 @@ export interface Words {
 export interface NoteSentence {
   /** What the note shows. */
   text: string;
-  /** The D6 or D14 row it comes from. */
-  from: { choice: string } | { words: string };
+  /** The D6, D14 or D15 row it comes from. */
+  from: { choice: string } | { words: string } | { guess: string };
   date: string;
   pattern?: string;
   evidence?: Evidence[];
+  /** FR-T9.9: "A reading you accepted", or "Your words" written in place of a guess. */
+  label?: "A reading you accepted" | "Your words";
+  quotes?: string[];
+}
+
+/** FR-T9.9: guesses he marked "Yes", newest first. Only these, and his fixes, reach the note. */
+export function acceptedGuesses(readings: ReadingRow[], person = "me"): NoteSentence[] {
+  return readings
+    .filter((r) => r.person_id === person)
+    .flatMap((r) => r.guesses.filter((g) => g.verdict === "yes").map((g) => ({ g, at: g.verdict_at ?? r.made_at })))
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .map(({ g, at }) => ({ text: g.question, from: { guess: g.guess_id }, date: localDay(at), label: "A reading you accepted" as const, quotes: g.quotes.map((q) => q.quote) }));
 }
 
 export const kept = (c: Choice) => c.choice !== "neither";
@@ -53,13 +66,15 @@ export function localDay(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function noteAvailable(choices: Choice[], words: Words[], person = "me"): boolean {
-  const k = choices.filter((c) => c.person_id === person && kept(c)).length;
+export function noteAvailable(choices: Choice[], words: Words[], person = "me", readings: ReadingRow[] = []): boolean {
+  const k = choices.filter((c) => c.person_id === person && kept(c)).length + acceptedGuesses(readings, person).length;
   const w = words.filter((x) => x.person_id === person && x.in_note && x.text.trim()).length;
   return k >= 2 || (k >= 1 && w >= 1);
 }
 
-export function assembleNote(choices: Choice[], words: Words[], keys: Key[], person = "me") {
+export function assembleNote(choices: Choice[], words: Words[], keys: Key[], person = "me", readingRows: ReadingRow[] = []) {
+  const guessIds = new Set(readingRows.flatMap((r) => r.guesses.map((g) => g.guess_id)));
+  const accepted = acceptedGuesses(readingRows, person);
   const readings: NoteSentence[] = choices
     .filter((c) => c.person_id === person && kept(c))
     .sort((a, b) => b.answered_at.localeCompare(a.answered_at))
@@ -73,6 +88,7 @@ export function assembleNote(choices: Choice[], words: Words[], keys: Key[], per
   const own: NoteSentence[] = words
     .filter((w) => w.person_id === person && w.in_note && w.text.trim())
     .sort((a, b) => b.written_at.localeCompare(a.written_at))
-    .map((w) => ({ text: w.text.trim(), from: { words: w.words_id }, date: localDay(w.written_at), pattern: w.question }));
-  return { front: readings.slice(0, 3), readings, own, swatches: keys };
+    .map((w) => ({ text: w.text.trim(), from: { words: w.words_id }, date: localDay(w.written_at), pattern: w.question, ...(guessIds.has(w.about) ? { label: "Your words" as const } : {}) }));
+  const front = [...readings.map((s) => ({ s, at: s.date })), ...accepted.map((s) => ({ s, at: s.date }))].sort((a, b) => b.at.localeCompare(a.at)).map((x) => x.s);
+  return { front: front.slice(0, 3), readings, accepted, own, swatches: keys };
 }

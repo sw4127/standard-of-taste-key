@@ -8,9 +8,10 @@ import { FRIEND, friendPlays, play, SONG } from "./testing/panel";
 const e = (kind: UsageEvent["kind"], at: string, play_id?: string, extra: Partial<UsageEvent> = {}): UsageEvent => ({ event_id: `${kind}${at}`, kind, at, ...(play_id ? { play_id } : {}), ...extra });
 
 describe("the log", () => {
-  it("has every kind the PRD lists for D9", () => {
-    expect(EVENT_KINDS).toHaveLength(21);
+  it("has every kind the PRD lists for D9, and the eight A5 added for the reading", () => {
+    expect(EVENT_KINDS).toHaveLength(29);
     expect(EVENT_KINDS).toContain("next_search_opened");
+    for (const k of ["reading_made", "reading_refused", "guess_accepted", "guess_fixed", "guess_rejected"] as const) expect(EVENT_KINDS).toContain(k);
   });
 });
 
@@ -50,7 +51,7 @@ describe("the export", () => {
     ],
     events: [e("song_named", "x", undefined, { person_id: "me" }), e("history_loaded", "y", undefined, { person_id: "person-f" })],
     people: [{ person_id: "me", label: "me", source: "named songs", loaded_at: "x" }, FRIEND],
-    songs: [], words: [],
+    songs: [], words: [], readings: [],
   };
   const histories = { me: friendPlays(3, "A", "B", () => "C").map((r, i) => ({ ...r, person_id: "me", history_id: `me:${i}` })), "person-f": friendPlays(30, "A", "B", () => "C") };
   it("leaves the friend's D11 rows, and their readings, people row and events, out by default", () => {

@@ -11,3 +11,4 @@ next-env.d.ts
 my-record-*.json
 *.local.test.ts
 *.out.txt
+my-reading-questions-*.json

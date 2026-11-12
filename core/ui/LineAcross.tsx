@@ -98,7 +98,7 @@ export function LineAcross({ line, person = "me", onNext, nextLabel }: { line: P
           <label className="label" htmlFor={`${ids}-w`}>
             In your words
           </label>
-          <textarea id={`${ids}-w`} className="own words-box" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <textarea id={`${ids}-w`} className="own words-box" rows={3} spellCheck value={draft} onChange={(e) => setDraft(e.target.value)} />
           <label className="meta check">
             <input type="checkbox" checked={inNote} onChange={(e) => setInNote(e.target.checked)} /> Keep this on my taste note
           </label>

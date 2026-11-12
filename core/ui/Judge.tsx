@@ -12,6 +12,7 @@ import { linesAcross } from "../src/patterns";
 import { theirName } from "../src/firstwords";
 import { judgeSource, type JudgeSource } from "./judge-source";
 import { lookBackQuestion } from "./LookBack";
+import { readQuestionsFile, readingSheet, sheetCounts, theirReading } from "../src/reading/rows";
 import { Go } from "./nav";
 import { actions, hydrate, ME, songsOf, useStore, type State } from "./store";
 
@@ -63,6 +64,78 @@ function PersonPicker({ label, people, value, onPick, st }: { label: string; peo
   );
 }
 
+/**
+ * FR-T9.10 part 3, the reading sheet for the swap test with decoys: his guesses and a second person's
+ * (from a file they exported themselves: questions only), mixed by a seeded shuffle, owners hidden.
+ * "Mine", "Not mine" or "Can't tell" for each; counts per owner. Their questions are held under their
+ * own row in D12, left out of his exports, and removed by "Erase everything".
+ */
+export function ReadingSheet() {
+  const st = useStore();
+  const theirs = st.people.filter((p) => p.source === "reading questions");
+  const [whoId, setWhoId] = useState<string | null>(null);
+  const them = (theirs.find((p) => p.person_id === whoId) ?? theirs[theirs.length - 1])?.person_id;
+  const items = useMemo(() => (them ? readingSheet(st.readings, ME, them, mix) : []), [st.readings, them]);
+  const [label, setLabel] = useState("");
+  const [consent, setConsent] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
+  const answers = Object.fromEntries(items.map((it) => [it.id, st.events.find((e) => e.kind === "reading_swap_answered" && e.question_id === it.id && e.person_id === it.owner && e.judge_id === ME)?.value]));
+  const counts = sheetCounts(items, answers);
+  const ready = label.trim().length > 0 && consent.trim().length > 0;
+
+  const read = async (file: File) => {
+    const f = readQuestionsFile(await file.text());
+    if (!f || !f.questions.length) return setProblem("This file is not a questions file from The Key, or it holds no questions.");
+    setProblem(null);
+    const pid = actions.addPerson(label, consent, "reading questions");
+    actions.addTheirQuestions(theirReading(f, pid, new Date().toISOString()));
+    setWhoId(pid);
+    setLabel("");
+    setConsent("");
+  };
+
+  return (
+    <>
+      <div className="card stack">
+        <p className="label">The reading sheet: guesses from your readings and someone else&#39;s, mixed. Can you spot yours?</p>
+        <p className="record">The other person makes their file on their own reading page, with “Export my questions”. It holds their questions only, with every quote, fact and record name taken out. Yours are shown the same way here.</p>
+        <label className="label" htmlFor="sheet-label">What you call them</label>
+        <input id="sheet-label" className="field" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <label className="label" htmlFor="sheet-consent">Their agreement, in your words</label>
+        <textarea id="sheet-consent" className="field words-box" value={consent} onChange={(e) => setConsent(e.target.value)} />
+        <label className="label" htmlFor="sheet-file">Their questions file</label>
+        <input id="sheet-file" type="file" accept="application/json,.json" disabled={!ready} onChange={(e) => e.target.files?.[0] && void read(e.target.files[0])} />
+        {problem && <p className="record">{problem}</p>}
+        {theirs.length > 1 && <PersonPicker label="Mixed with" people={theirs.map((p) => p.person_id)} value={them ?? ""} onPick={setWhoId} st={st} />}
+      </div>
+      {items.length > 0 && (
+        <>
+          <ul className="plain stack">
+            {items.map((it) => (
+              <LineToJudge
+                key={it.id}
+                line={{ id: it.id, pattern: it.question }}
+                options={SWAP}
+                value={answers[it.id]}
+                onPick={(v) => actions.judge({ kind: "reading_swap_answered", question_id: it.id, person_id: it.owner, judge_id: ME, value: v })}
+              />
+            ))}
+          </ul>
+          <div className="card stack">
+            <p className="label">Marked “Mine” so far</p>
+            <p className="record">
+              Your guesses marked Mine: {counts[ME]?.mine ?? 0} of {counts[ME]?.of ?? 0}.
+            </p>
+            <p className="record">
+              {nameOf(st, them!).replace(/^./, (c) => c.toUpperCase())}&#39;s guesses marked Mine: {counts[them!]?.mine ?? 0} of {counts[them!]?.of ?? 0}.
+            </p>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 export function Judge() {
   const st = useStore();
   useEffect(() => void hydrate(), []);
@@ -83,7 +156,8 @@ export function Judge() {
   const judge = second && judgeId === second ? second : first ?? ME;
   const mixed = useMemo(() => (first && second ? mix(byPerson[first]!, byPerson[second]!, first, second) : []), [byPerson, first, second]);
   // The swap test first, on its own: check A lists the person's own lines, which would give it away.
-  const [tab, setTab] = useState<"swap" | "check-a" | null>(null);
+  const [tab, setTab] = useState<"swap" | "check-a" | "reading" | null>(null);
+  const hasReadings = st.readings.some((r) => r.person_id === ME && r.guesses.length > 0);
 
   if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
 
@@ -123,10 +197,17 @@ export function Judge() {
         <button type="button" className="act choice" aria-pressed={shown === "check-a"} onClick={() => setTab("check-a")}>
           Check your lines
         </button>
+        {hasReadings && (
+          <button type="button" className="act choice" aria-pressed={shown === "reading"} onClick={() => setTab("reading")}>
+            The reading sheet
+          </button>
+        )}
       </div>
       {second && <p className="meta">Do the swap test first. Checking your lines shows whose lines are whose.</p>}
       {src === "look-back" && <p className="meta">Look-back lines here use the most recent full three months (one calendar quarter) in each file.</p>}
       </div>
+
+      {shown === "reading" && <ReadingSheet />}
 
       {shown === "check-a" && (
         <>

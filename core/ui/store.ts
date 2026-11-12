@@ -7,6 +7,8 @@
 import { useSyncExternalStore } from "react";
 import { readFound, type AlbumPart, type Found, type HistoryRow, type KeyRow, type NamedSong, type NextRow, type Part, type PlayRow, type Song, type SongFacts } from "../src/model";
 import type { Choice, Words } from "../src/note";
+import { deleteConnection, loadConnection, putConnection } from "../src/storage";
+import { viewOf, type Connection, type ConnectionView, type ReadingRow, type Verdict } from "../src/reading/rows";
 import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadNexts, loadPlays, openDb, putHistory, putKey, putNext, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
@@ -34,9 +36,15 @@ export interface State {
   birth_year?: number;
   installed_at?: string;
   last_erased_at?: string;
+  /** D15: readings made in this browser, and a second person's questions for the swap test (FR-T9.10). */
+  readings: ReadingRow[];
+  /** D16 as a screen may see it: never the key, only its last four characters. */
+  connection?: ConnectionView;
+  /** FR-T9.9: may the reading quote words about a loss or a hard time? Undefined until he answers. */
+  quote_hard?: boolean;
 }
 
-const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0 };
+const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0, readings: [] };
 
 let state: State = EMPTY;
 const listeners = new Set<() => void>();
@@ -79,11 +87,13 @@ export function toSnapshot(s: State): Snapshot {
       settings_id: 1, installed_at: s.installed_at ?? now(), ...(s.last_erased_at ? { last_erased_at: s.last_erased_at } : {}),
       story_shown_count: s.story_shown_count, ...(s.story_last_shown_on ? { story_last_shown_on: s.story_last_shown_on } : {}),
       ...(s.birth_year ? { birth_year: s.birth_year } : {}),
+      ...(s.quote_hard !== undefined ? { quote_hard: s.quote_hard } : {}),
     }],
     events: s.events,
     people,
     songs: s.songs,
     words: s.words,
+    readings: s.readings,
   };
 }
 
@@ -115,6 +125,8 @@ export function fromSnapshot(snap: Snapshot): State {
     story_shown_count: settings?.story_shown_count ?? 0,
     story_last_shown_on: settings?.story_last_shown_on,
     birth_year: settings?.birth_year,
+    quote_hard: settings?.quote_hard,
+    readings: byTime(snap.readings ?? [], (r) => r.made_at),
     installed_at: settings?.installed_at,
     last_erased_at: settings?.last_erased_at,
   };
@@ -153,7 +165,9 @@ export function hydrate(): Promise<void> {
     try {
       const d = await db();
       const loaded = fromSnapshot(await loadAll(d));
-      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now() };
+      const conn = await loadConnection(d);
+      memKey = conn;
+      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now(), ...(conn ? { connection: viewOf(conn) } : {}) };
     } catch {
       state = { ...state, ready: true };
     }
@@ -164,9 +178,21 @@ export function hydrate(): Promise<void> {
 
 export const storageFailed = () => saveFailed;
 
+// ---- D16, the key (Amendment of 2026-11-11) ----------------------------------------------------------
+// The key is read from D16 only when a call is made, and is never put in the state screens read.
+
+let memKey: Connection | null = null;
+
+/** The saved key, for a call to api.anthropic.com and nothing else. */
+export async function savedKey(): Promise<string | null> {
+  if (hasIdb() && state.ready) memKey = await loadConnection(await db()).catch(() => memKey);
+  return memKey?.key ?? null;
+}
+
 /** For tests of the screens only: put rows in place without a database. */
-export function seedForTests(rows: Partial<State>): void {
-  state = { ...EMPTY, ready: true, ...rows };
+export function seedForTests(rows: Partial<State>, key?: string): void {
+  memKey = key ? { provider: "anthropic", key, saved_at: "2026-11-12T00:00:00Z" } : null;
+  state = { ...EMPTY, ready: true, ...rows, ...(memKey ? { connection: viewOf(memKey) } : {}) };
   hydrating = Promise.resolve();
   emit();
 }
@@ -282,9 +308,63 @@ export const actions = {
   keepRecording(facts: SongFacts, matched_by: RecordingRow["matched_by"]) {
     set({ ...state, facts: { ...state.facts, [facts.recording_id]: facts }, matchedBy: { ...state.matchedBy, [facts.recording_id]: matched_by } });
   },
+  /** FR-T9.9: save the API key in this browser only (D16); the screen keeps its last four characters. */
+  async saveApiKey(key: string) {
+    const row: Connection = { provider: "anthropic", key: key.trim(), saved_at: now() };
+    memKey = row;
+    if (hasIdb()) await putConnection(await db(), row).catch(() => void (saveFailed = true));
+    set({ ...state, connection: viewOf(row) });
+  },
+  /** "Remove key". */
+  async removeApiKey() {
+    memKey = null;
+    if (hasIdb()) await deleteConnection(await db()).catch(() => void (saveFailed = true));
+    const { connection: _gone, ...rest } = state;
+    set({ ...rest });
+  },
+  /** The last "Test the connection", kept with the key; the log gets "connected" or "failed" and no words. */
+  async tested(ok: boolean, sentence: string) {
+    if (!memKey) return;
+    memKey = { ...memKey, last_test: { at: now(), ok, sentence } };
+    if (hasIdb()) await putConnection(await db(), memKey).catch(() => void (saveFailed = true));
+    set({ ...state, connection: viewOf(memKey), events: [...state.events, ev("connection_tested", { value: ok ? "connected" : "failed" })] });
+  },
+  setQuoteHard(v: boolean) {
+    set({ ...state, quote_hard: v });
+  },
+  /** FR-T9.4: "Does this read clearly?" was used; the log gets the count and no words. */
+  wordingChecked() {
+    set({ ...state, events: [...state.events, ev("wording_checked")] });
+  },
+  /** A reading made and checked: stored unchanged (D15). The log counts it, and a refusal before it. */
+  keepReading(r: ReadingRow, refusedOnce: boolean) {
+    set({
+      ...state,
+      readings: [...state.readings, r],
+      events: [...state.events, ...(refusedOnce ? [ev("reading_refused", { value: "once" })] : []), ev("reading_made", { value: String(r.guesses.length) })],
+    });
+  },
+  /** A reading refused by the checks: nothing stored but the count. */
+  readingRefused(times: 1 | 2) {
+    const once = ev("reading_refused", { value: "once" });
+    set({ ...state, events: [...state.events, once, ...(times === 2 ? [ev("reading_refused", { value: "twice" })] : [])] });
+  },
+  /** "Yes" · "Partly: fix this" · "Neither" on one guess. A fix is his words (D14), and replaces the guess on his note. */
+  verdict(reading_id: string, guess_id: string, v: Verdict, fix?: { question: string; text: string }) {
+    const kind = v === "yes" ? "guess_accepted" : v === "partly" ? "guess_fixed" : "guess_rejected";
+    const readings = state.readings.map((r) => (r.reading_id !== reading_id ? r : { ...r, guesses: r.guesses.map((g) => (g.guess_id === guess_id ? { ...g, verdict: v, verdict_at: now() } : g)) }));
+    const others = state.words.filter((w) => w.about !== guess_id || w.person_id !== ME);
+    const words = fix ? [...others, { words_id: id(), person_id: ME, question: fix.question, about: guess_id, text: fix.text, in_note: true, written_at: now() }] : v === "partly" ? state.words : others;
+    set({ ...state, readings, words, events: [...state.events, ev(kind, { question_id: guess_id })] });
+  },
+  /** FR-T9.10 part 3: the second person's questions, held under their own row in D12. */
+  addTheirQuestions(r: ReadingRow) {
+    set({ ...state, readings: [...state.readings.filter((x) => x.person_id !== r.person_id), r] });
+  },
   /** FR-T1.6: clears every store in this browser; only the time of the erase is kept. */
   async eraseEverything() {
     const at = now();
+    memKey = null;
     if (hasIdb()) {
       await saving;
       await eraseAll(await db(), at);

@@ -26,6 +26,7 @@ export function PanelFoot() {
       <PrivacyLine />
       <div className="row">
         <Go to="numbers">My numbers and export</Go>
+        <Go to="reading">A reading of your words</Go>
         <EraseEverything />
       </div>
     </footer>
@@ -47,6 +48,7 @@ export function SiteFoot() {
       <DataCredits />
       <div className="row">
         <Go to="numbers">My numbers and export</Go>
+        <Go to="reading">A reading of your words</Go>
         <EraseEverything />
       </div>
     </footer>

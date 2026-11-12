@@ -15,13 +15,13 @@ export function TasteNote({ person = "me" }: { person?: string }) {
   const st = useStore();
   useEffect(() => void hydrate(), []);
   useEffect(() => {
-    if (st.ready && noteAvailable(st.choices, st.words, person)) actions.log("note_opened", { person_id: person });
+    if (st.ready && noteAvailable(st.choices, st.words, person, st.readings)) actions.log("note_opened", { person_id: person });
   }, [st.ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const [back, setBack] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
   const songs = songsOf(st, person);
   const measured = songs.filter((s) => s.facts.key && s.facts.key.strength >= 0.5);
-  const note = assembleNote(st.choices, st.words, measured.map((s) => s.facts.key!), person);
+  const note = assembleNote(st.choices, st.words, measured.map((s) => s.facts.key!), person, st.readings);
   const example = songs.some((s) => s.facts.recording_id.startsWith("example-"));
   // FR-T9.4: the person's words pass FR-CORE-2 before they are shown again on the note; words that
   // do not are kept, unchanged, and shown only here on the back, labelled.
@@ -30,7 +30,7 @@ export function TasteNote({ person = "me" }: { person?: string }) {
 
   if (!st.ready) return <p className="card meta" role="status">Reading what this browser keeps…</p>;
 
-  if (!noteAvailable(st.choices, st.words, person)) {
+  if (!noteAvailable(st.choices, st.words, person, st.readings)) {
     return (
       <section className="stack-lg">
         <div className="card stack">
@@ -50,6 +50,7 @@ export function TasteNote({ person = "me" }: { person?: string }) {
           <ul className="plain note-lines">
             {note.front.map((s) => (
               <li key={JSON.stringify(s.from)}>
+                {s.label && <span className="label">{s.label}: </span>}
                 <span className="voice">{s.text}</span> <span className="meta">{s.date}</span>
               </li>
             ))}
@@ -89,6 +90,21 @@ export function TasteNote({ person = "me" }: { person?: string }) {
               );
             })}
           </ul>
+          {note.accepted.length > 0 && (
+            <>
+              <hr className="rule" />
+              <p className="label">A reading you accepted</p>
+              <ul className="plain stack">
+                {note.accepted.map((s) => (
+                  <li key={JSON.stringify(s.from)} className="stack">
+                    <p className="voice">{s.text}</p>
+                    {s.quotes!.length > 0 && <p className="meta">Your words: {s.quotes!.map((q) => `“${q}”`).join(" ")}</p>}
+                    <p className="meta">{s.date}</p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {own.length > 0 && (
             <>
               <hr className="rule" />
@@ -96,7 +112,7 @@ export function TasteNote({ person = "me" }: { person?: string }) {
               <ul className="plain stack">
                 {own.map((w) => (
                   <li key={JSON.stringify(w.from)} className="stack">
-                    <p className="meta">{w.pattern}</p>
+                    <p className="meta">{w.label ? `${w.label}, in place of the guess: ` : ""}{w.pattern}</p>
                     <p className="own">{w.text}</p>
                     <p className="meta">{w.date}</p>
                   </li>

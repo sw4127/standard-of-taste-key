@@ -10,6 +10,7 @@ import { LookBack } from "@sot/core/ui/LookBack";
 import { NavContext, type View } from "@sot/core/ui/nav";
 import { NowPlaying } from "@sot/core/ui/NowPlaying";
 import { PanelHome } from "@sot/core/ui/PanelHome";
+import { ReadingLink } from "@sot/core/ui/Reading";
 import { useLivePage } from "./live";
 import { SongCardExample } from "@sot/core/ui/SongCardExample";
 import { Songs } from "@sot/core/ui/Songs";
@@ -23,6 +24,7 @@ const SCREENS: Record<View, () => React.ReactNode> = {
   note: () => <TasteNote />,
   judge: () => <Judge />,
   numbers: () => <MyNumbers />,
+  reading: () => <ReadingLink />,
 };
 
 function Panel() {

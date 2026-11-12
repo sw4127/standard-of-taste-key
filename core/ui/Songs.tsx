@@ -17,6 +17,7 @@ import type { FetchFn } from "../src/sources/http";
 import { searchSongs, type Candidate } from "../src/sources/musicbrainz";
 import { edgeClass, edgeStyle, KeyChip } from "./KeyChip";
 import { LineAcross } from "./LineAcross";
+import { RecordWords } from "./RecordWords";
 import { setJudgeSource } from "./judge-source";
 import { Go } from "./nav";
 import { actions, hydrate, MAX_SONGS, ME, others, songsOf, useStore } from "./store";
@@ -309,10 +310,11 @@ export function Songs() {
         </div>
       )}
       {inSound && sound.map((l) => <LineAcross key={`${person}:${l.id}`} line={l} person={person} />)}
+      {person === ME && <RecordWords songs={songs} />}
 
-      {((person === ME && noteAvailable(st.choices, st.words, ME)) || all.length > 0) && (
+      {((person === ME && noteAvailable(st.choices, st.words, ME, st.readings)) || all.length > 0) && (
         <div className="card row">
-          {person === ME && noteAvailable(st.choices, st.words, ME) && <Go to="note">Your taste in words, so far</Go>}
+          {person === ME && noteAvailable(st.choices, st.words, ME, st.readings) && <Go to="note">Your taste in words, so far</Go>}
           {all.length > 0 && <Go to="judge" onGo={() => setJudgeSource("named songs")}>Judge these lines</Go>}
         </div>
       )}

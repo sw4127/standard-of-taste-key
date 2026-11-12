@@ -1,0 +1,9 @@
+{"person":"a","run":1,"quotes":2,"quotes_word_for_word":2,"guesses":1,"refused_by_code":true,"reasons":["guess 1: a question longer than 45 words"]}
+{"person":"a","run":2,"quotes":4,"quotes_word_for_word":4,"guesses":1,"refused_by_code":false,"reasons":[]}
+{"person":"a","run":3,"quotes":4,"quotes_word_for_word":4,"guesses":1,"refused_by_code":false,"reasons":[]}
+{"person":"b","run":1,"quotes":0,"quotes_word_for_word":0,"guesses":0,"refused_by_code":false,"reasons":[]}
+{"person":"b","run":2,"quotes":0,"quotes_word_for_word":0,"guesses":0,"refused_by_code":false,"reasons":[]}
+{"person":"b","run":3,"quotes":0,"quotes_word_for_word":0,"guesses":0,"refused_by_code":false,"reasons":[]}
+{"person":"c","run":1,"quotes":3,"quotes_word_for_word":3,"guesses":1,"refused_by_code":false,"reasons":[]}
+{"person":"c","run":2,"quotes":2,"quotes_word_for_word":2,"guesses":1,"refused_by_code":false,"reasons":[]}
+{"person":"c","run":3,"quotes":3,"quotes_word_for_word":3,"guesses":1,"refused_by_code":false,"reasons":[]}

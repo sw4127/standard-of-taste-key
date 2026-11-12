@@ -18,6 +18,7 @@ function snapshot(): Snapshot {
     people: [{ person_id: "me", label: "me", source: "named songs", loaded_at: AT }],
     songs: [{ entry_id: "e1", person_id: "me", typed_text: "glass", recording_id: EXAMPLE_CATALOGUE[0]!.recording_id, comes_back_for: "the bridge", found_me: "unanswered", entered_at: AT }],
     words: [{ words_id: "w1", person_id: "me", question: "q?", about: "q1", text: "my words", written_at: AT, in_note: true }],
+    readings: [],
   };
 }
 

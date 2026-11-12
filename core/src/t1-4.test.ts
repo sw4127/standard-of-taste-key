@@ -194,7 +194,7 @@ describe("a pick is kept with its recording", () => {
     const { toSnapshot } = await import("../ui/store");
     const { EXAMPLE_CATALOGUE } = await import("./examples");
     const f = EXAMPLE_CATALOGUE[0]!;
-    const snap = toSnapshot({ ready: true, people: [], songs: [], facts: { [f.recording_id]: f }, matchedBy: { [f.recording_id]: "my fix" }, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0 });
+    const snap = toSnapshot({ ready: true, people: [], songs: [], facts: { [f.recording_id]: f }, matchedBy: { [f.recording_id]: "my fix" }, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0, readings: [] });
     expect(snap.recordings.map((r) => [r.recording_id, r.matched_by])).toEqual([[f.recording_id, "my fix"]]);
   });
 });

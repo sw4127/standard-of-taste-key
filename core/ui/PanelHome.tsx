@@ -56,7 +56,7 @@ export function PanelHome({ playing = false, onBilibili = false }: { playing?: b
   const [picked, setPicked] = useState<number | null>(null);
   const songs = recordSongs(st.plays, st.facts);
   const state = idleState(songs.length, onBilibili);
-  const note = noteAvailable(st.choices, st.words) && (
+  const note = noteAvailable(st.choices, st.words, "me", st.readings) && (
     <article className="card">
       <Go to="note">Your taste in words, so far</Go>
     </article>

@@ -1,0 +1,19 @@
+{
+  "run_on": "2026-11-12",
+  "note": "Round 2 of the fresh runs, on the prompt with rule 8's word count added. Round 1 (checks/reading-gate/round-1) failed part 2: run a-1's question was 47 words, over the 45-word limit; code refused it, but a rule was broken. Round 2, a-1 was refused by code on the 'because' rule of thumb; read by the builder as joining two records through one time, not two events of the person's life, so counted as a false refusal and not a broken rule. Bob may overrule that reading.",
+  "planted": { "outputs": 21, "refused": 21, "good_passed": true },
+  "fresh": {
+    "model_level": "Sonnet (Claude Sonnet 5.5, claude-sonnet-5-5), as subagents in the build session on Bob's plan",
+    "runs": [
+      { "person": "a", "run": 1, "quotes": 4, "quotes_word_for_word": 4, "guesses": 1, "refused_by_code": true, "rules_broken": 0 },
+      { "person": "a", "run": 2, "quotes": 2, "quotes_word_for_word": 2, "guesses": 1, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "a", "run": 3, "quotes": 4, "quotes_word_for_word": 4, "guesses": 1, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "b", "run": 1, "quotes": 0, "quotes_word_for_word": 0, "guesses": 0, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "b", "run": 2, "quotes": 0, "quotes_word_for_word": 0, "guesses": 0, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "b", "run": 3, "quotes": 0, "quotes_word_for_word": 0, "guesses": 0, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "c", "run": 1, "quotes": 2, "quotes_word_for_word": 2, "guesses": 1, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "c", "run": 2, "quotes": 3, "quotes_word_for_word": 3, "guesses": 1, "refused_by_code": false, "rules_broken": 0 },
+      { "person": "c", "run": 3, "quotes": 2, "quotes_word_for_word": 2, "guesses": 1, "refused_by_code": false, "rules_broken": 0 }
+    ]
+  }
+}

@@ -82,5 +82,7 @@ export function exportRecord(all: Everything, includeOthers: boolean, at: string
     D12_people: mine(s.people),
     D13_named_songs: mine(s.songs),
     D14_my_words: mine(s.words),
+    // FR-T9.9: the readings, shown as they were made. D16 (the key) is never part of an export.
+    D15_readings: mine(s.readings ?? []),
   };
 }

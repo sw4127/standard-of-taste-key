@@ -9,9 +9,10 @@
 import { keyName, parseKey } from "./design/key-colour";
 import type { CreditRole, HistoryRow, KeyRow, NamedSong, NextRow, PlaceRole, PlayRow, SongFacts, Source } from "./model";
 import type { Choice, Words } from "./note";
+import type { Connection, ReadingRow } from "./reading/rows";
 
 export const DB_NAME = "the-key";
-const VERSION = 5; // 2: D11 Listening History; 3: D1 Plays; 4: D5 Keys; 5: D7 Next Records
+const VERSION = 6; // 2: D11 Listening History; 3: D1 Plays; 4: D5 Keys; 5: D7 Next Records; 6: D15 Readings, D16 Model connection
 
 export const STORES = {
   D1: "play_id",
@@ -26,6 +27,8 @@ export const STORES = {
   D12: "person_id",
   D13: "entry_id",
   D14: "words_id",
+  D15: "reading_id",
+  D16: "provider",
 } as const;
 export type StoreName = keyof typeof STORES;
 
@@ -65,7 +68,7 @@ export interface FactRow {
 export interface Person {
   person_id: string;
   label: string;
-  source: "named songs" | "spotify export" | "bilibili panel";
+  source: "named songs" | "spotify export" | "bilibili panel" | "reading questions";
   /** Required for anyone but "me": the user's own words and the date. */
   consent_note?: string;
   loaded_at: string;
@@ -77,6 +80,8 @@ export const EVENT_KINDS = [
   "song_started", "key_ready", "key_shown", "proof_opened", "story_shown", "made_opened", "next_shown", "next_search_opened",
   "uploader_opened", "line_dropped", "match_fixed", "song_named", "part_answered", "found_answered", "reading_chosen",
   "words_written", "note_opened", "history_loaded", "export_made", "check_a_answered", "swap_answered",
+  // FR-T9.9 and FR-T9.4 (A5): counts only, never text, never the key.
+  "reading_made", "reading_refused", "guess_accepted", "guess_fixed", "guess_rejected", "connection_tested", "wording_checked", "reading_swap_answered",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
@@ -106,6 +111,8 @@ export interface Settings {
   story_last_shown_on?: string;
   /** FR-T9.8: the year the person was born, if they gave it; kept in this browser only. */
   birth_year?: number;
+  /** FR-T9.9: "My answers may mention a loss or a hard time. Let the reading quote them." Asked once. */
+  quote_hard?: boolean;
 }
 
 export interface Snapshot {
@@ -117,10 +124,12 @@ export interface Snapshot {
   people: Person[];
   songs: NamedSong[];
   words: Words[];
+  /** D15. D16 (the key) is never part of a snapshot: it has its own store and its own three functions below. */
+  readings: ReadingRow[];
 }
 
 const SNAPSHOT_STORE: Record<keyof Snapshot, StoreName> = {
-  recordings: "D2", facts: "D3", choices: "D6", settings: "D8", events: "D9", people: "D12", songs: "D13", words: "D14",
+  recordings: "D2", facts: "D3", choices: "D6", settings: "D8", events: "D9", people: "D12", songs: "D13", words: "D14", readings: "D15",
 };
 
 // ---- SongFacts ⇄ D2 + D3 --------------------------------------------------------------------------
@@ -231,7 +240,7 @@ export async function loadHistories(db: IDBDatabase): Promise<Record<string, His
 }
 
 export async function loadAll(db: IDBDatabase): Promise<Snapshot> {
-  const tx = db.transaction(Object.keys(STORES), "readonly");
+  const tx = db.transaction(Object.values(SNAPSHOT_STORE), "readonly");
   const out = {} as Record<keyof Snapshot, unknown[]>;
   await Promise.all(
     (Object.entries(SNAPSHOT_STORE) as [keyof Snapshot, StoreName][]).map(async ([k, s]) => {
@@ -243,7 +252,7 @@ export async function loadAll(db: IDBDatabase): Promise<Snapshot> {
 
 /** Replace every store's rows with the snapshot's, in one transaction. */
 export async function saveAll(db: IDBDatabase, snap: Snapshot): Promise<void> {
-  const tx = db.transaction(Object.keys(STORES), "readwrite");
+  const tx = db.transaction(Object.values(SNAPSHOT_STORE), "readwrite");
   for (const [k, s] of Object.entries(SNAPSHOT_STORE) as [keyof Snapshot, StoreName][]) {
     const os = tx.objectStore(s);
     os.clear();
@@ -298,4 +307,23 @@ export async function putNext(db: IDBDatabase, row: NextRow): Promise<void> {
 export async function loadNexts(db: IDBDatabase): Promise<NextRow[]> {
   const rows = (await req(db.transaction("D7").objectStore("D7").getAll())) as NextRow[];
   return rows.sort((a, b) => a.shown_at.localeCompare(b.shown_at));
+}
+
+// D16, the model connection: the key lives here alone, in this browser (Amendment of 2026-11-11).
+
+export async function putConnection(db: IDBDatabase, row: Connection): Promise<void> {
+  const tx = db.transaction("D16", "readwrite");
+  tx.objectStore("D16").put(row);
+  await done(tx);
+}
+
+export async function loadConnection(db: IDBDatabase): Promise<Connection | null> {
+  return ((await req(db.transaction("D16").objectStore("D16").get("anthropic"))) as Connection | undefined) ?? null;
+}
+
+/** "Remove key". */
+export async function deleteConnection(db: IDBDatabase): Promise<void> {
+  const tx = db.transaction("D16", "readwrite");
+  tx.objectStore("D16").delete("anthropic");
+  await done(tx);
 }
