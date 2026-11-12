@@ -8,7 +8,7 @@ import { WebNav } from "./_nav/WebNav";
 
 export const metadata: Metadata = {
   title: "Standard of Taste",
-  description: "Words about your own taste that you can check. Everything stays in this browser.",
+  description: "Words about your own taste that you can check. Everything stays in this browser unless you ask for a reading.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { actions } from "./store";
 
+/** Rule 6 as amended: the one thing that leaves on purpose is a reading he asks for, after its notice. */
+export const PRIVACY_LINE = "Everything stays in this browser. The one exception is a reading you ask for, which sends your written answers to Anthropic after telling you what goes.";
+
 export function PrivacyLine() {
-  return <p className="meta">Everything stays in this browser.</p>;
+  return <p className="meta">{PRIVACY_LINE}</p>;
 }
 
 /** FR-T1.6: asks inside the page (no browser dialog), then clears every store in this browser. */

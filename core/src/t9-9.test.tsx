@@ -329,6 +329,15 @@ describe("the screen", () => {
   });
 });
 
+describe("the footer on every screen says what leaves", () => {
+  it("names the reading as the one exception, and passes the register check", async () => {
+    const { PRIVACY_LINE } = await import("../ui/Footer");
+    const { passes } = await import("./checks");
+    expect(PRIVACY_LINE).toContain("a reading you ask for, which sends your written answers to Anthropic");
+    expect(passes(PRIVACY_LINE, "fact")).toBe(true);
+  });
+});
+
 describe("the site's content security policy", () => {
   it("lets the page talk only to this site, the data sources, and api.anthropic.com, and load no script from elsewhere", () => {
     const v = JSON.parse(readFileSync(join(here, "..", "..", "vercel.json"), "utf8")) as { headers: { source: string; headers: { key: string; value: string }[] }[] };
