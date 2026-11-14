@@ -278,6 +278,11 @@ export async function putPlay(db: IDBDatabase, row: PlayRow): Promise<void> {
   await done(tx);
 }
 
+/** One play by its ID (FR-T1.9: the recorder adds to a row, never replaces what the panel matched). */
+export async function getPlay(db: IDBDatabase, play_id: string): Promise<PlayRow | null> {
+  return ((await req(db.transaction("D1").objectStore("D1").get(play_id))) as PlayRow | undefined) ?? null;
+}
+
 export async function loadPlays(db: IDBDatabase): Promise<PlayRow[]> {
   const rows = (await req(db.transaction("D1").objectStore("D1").getAll())) as PlayRow[];
   return rows.sort((a, b) => a.started_at.localeCompare(b.started_at));

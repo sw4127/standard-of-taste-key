@@ -60,6 +60,13 @@ export function idleState(songs: number, onBilibili: boolean): IdleState {
   return songs > 0 ? (onBilibili ? "record on Bilibili" : "record") : onBilibili ? "first-open on Bilibili" : "first-open";
 }
 
+/** FR-T1.9, point 3: how many plays were kept while the panel was closed, in one whole sentence. */
+export function closedSentence(n: number): string | null {
+  if (n <= 0) return null;
+  if (n === 1) return "The Key recorded one play while this panel was closed.";
+  return `The Key recorded ${n <= 12 ? NUMBERS[n]!.toLowerCase() : n} plays while this panel was closed.`;
+}
+
 export const ON_BILIBILI = "You are on Bilibili. Search pages are not read; a video page is.";
 export const PLAY_HERE = "Play a music video on this page and I'll read it.";
 export const PLAY_ON_BILIBILI = "Play a music video on Bilibili and I'll read it.";

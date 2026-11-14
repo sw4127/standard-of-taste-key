@@ -35,3 +35,12 @@
 - Every commit records: `North-star:`, three `Red-team:` lines, `Confession:`.
 
 **Layout.** `core/` (matching, checks, sources, templates, pattern and look-back computation, the Card stock design and the shared screens) · `extension/` (Manifest V3 side panel) · `web/` (Next.js static export) · `checks/` (the launch-gate sheet; never shipped).
+
+Appended 2026-11-14
+
+**How a step ends and how a build ends. This governs every build in this repository, whatever a prompt says or leaves out.**
+- Before each step: tell Bob the plan for the step and one different approach, and which you recommend.
+- Every step's reply ends with four things, and the same four go in the commit message: (1) proof from a real run: the test output, or what was seen in the browser; (2) three findings from red-teaming the step as a hostile reviewer, each with what was fixed in that step; (3) a confession: everything stubbed, mocked, hard-coded, skipped or not verified; (4) the north star, and how the step serves it. Put all of it in the reply and in the commit message.
+- After each step: a row in the private build log (story · what was specified · what was built · why it differed), the trace matrix updated, and the four numbers (spec gap rate, cause split, traceability, insight coverage). If traceability falls below 100%, stop and fix it before the next step.
+- Bob sees something working after the first step of a build, not only after the last.
+- Every build ends, before the last reply and without being asked, with: a hostile red-team of the whole build, saying what was fixed and what was left; a dated handoff in C:\Users\siqiw\Desktop\Prototype1\docs\rebuild-2026-10\ named handoff-YYYY-MM-DD.md; and the next activation prompt, saved in that folder and given to Bob in the chat in one copy block whose first line says where it runs.

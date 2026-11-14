@@ -24,12 +24,18 @@ const duration = () => (media && Number.isFinite(media.duration) && media.durati
 const snapshot = (): LiveMessage => ({ type: "key:page", facts, play_token: token, heard_seconds: Math.floor(clock.heard), playing, ended: clock.ended, duration_seconds: duration() });
 
 function send() {
-  // The panel may be closed: then nobody listens, and that is fine.
+  // The open panel hears this, and so does the background part, which keeps the play while the
+  // panel is closed (FR-T1.9). Nothing is sent outside the extension.
   chrome.runtime.sendMessage(snapshot()).catch(() => undefined);
 }
 
 const onTime = () => media && clock.tick(media.currentTime, !media.paused);
 const onPlay = () => {
+  // FR-T1.9: playing a video again after it reached its end is a new play, with its own row.
+  if (clock.ended) {
+    clock = new HeardClock();
+    token = newToken();
+  }
   playing = true;
   send();
 };

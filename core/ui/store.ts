@@ -9,6 +9,7 @@ import { readFound, type AlbumPart, type Found, type HistoryRow, type KeyRow, ty
 import type { Choice, Words } from "../src/note";
 import { deleteConnection, loadConnection, putConnection } from "../src/storage";
 import { viewOf, type Connection, type ConnectionView, type ReadingRow, type Verdict } from "../src/reading/rows";
+import { waitingClosed } from "../src/recorder";
 import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadNexts, loadPlays, openDb, putHistory, putKey, putNext, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
@@ -42,6 +43,8 @@ export interface State {
   connection?: ConnectionView;
   /** FR-T9.9: may the reading quote words about a loss or a hard time? Undefined until he answers. */
   quote_hard?: boolean;
+  /** FR-T1.9: plays recorded while the panel was closed and not yet matched, counted when the panel opened. */
+  closed_at_open?: number;
 }
 
 const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0, readings: [] };
@@ -167,7 +170,8 @@ export function hydrate(): Promise<void> {
       const loaded = fromSnapshot(await loadAll(d));
       const conn = await loadConnection(d);
       memKey = conn;
-      state = { ...loaded, histories: await loadHistories(d), plays: await loadPlays(d), keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now(), ...(conn ? { connection: viewOf(conn) } : {}) };
+      const plays = await loadPlays(d);
+      state = { ...loaded, closed_at_open: waitingClosed(plays).length, histories: await loadHistories(d), plays, keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now(), ...(conn ? { connection: viewOf(conn) } : {}) };
     } catch {
       state = { ...state, ready: true };
     }

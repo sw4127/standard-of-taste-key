@@ -14,6 +14,7 @@ import type { LivePage, PageFacts, PlayRow, SongFacts } from "../src/model";
 import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
 import { recordingFacts } from "../src/sources/recording";
+import { needsRule } from "../src/recorder";
 import { edgeClass, edgeStyle } from "./KeyChip";
 import { SongWords } from "./SongWords";
 import { actions, getState, hydrate, useStore } from "./store";
@@ -91,7 +92,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     beforePick.current = null;
     ruled.current = null;
     const { row: again, sameTitle } = viewingFor(st.plays, live.play_token, f.page_title);
-    if (again && sameTitle) {
+    // FR-T1.9: a play kept while the panel was closed has not been tried by the rule (empty version): match it now.
+    if (again && sameTitle && !needsRule(again)) {
       play.current = again;
       savedHeard.current = again.heard_seconds;
       setStatus({ kind: "match", result: null });
@@ -105,6 +107,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       reached_end: live.ended ? "yes" : "no",
       recording_id: fix?.recording_id ?? "", match_state: fix?.match_state ?? "unsure", match_rule_version: RULE_VERSION,
       song_title: fix?.song_title, song_artist: fix?.song_artist,
+      // FR-T1.9: a play first kept with the panel closed stays marked so.
+      recorded_with: again?.recorded_with ?? "panel open",
     };
     play.current = row;
     savedHeard.current = row.heard_seconds;

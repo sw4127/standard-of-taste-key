@@ -7,7 +7,7 @@
  */
 import { useContext, useEffect, useState } from "react";
 import { circlePlace } from "../src/design/key-colour";
-import { idleState, measuredKeys, ON_BILIBILI, PLAY_HERE, PLAY_ON_BILIBILI, playsSentence, recordSentence, recordSongs, RECENT_CARDS, unmeasuredSentence, type RecentSong } from "../src/idle";
+import { closedSentence, idleState, measuredKeys, ON_BILIBILI, PLAY_HERE, PLAY_ON_BILIBILI, playsSentence, recordSentence, recordSongs, RECENT_CARDS, unmeasuredSentence, type RecentSong } from "../src/idle";
 import { noteAvailable } from "../src/note";
 import { linesAcross } from "../src/patterns";
 import { CIRCLE_SENTENCES, edgeClass, edgeStyle, KeyChip, KeyCircle } from "./KeyChip";
@@ -56,6 +56,13 @@ export function PanelHome({ playing = false, onBilibili = false }: { playing?: b
   const [picked, setPicked] = useState<number | null>(null);
   const songs = recordSongs(st.plays, st.facts);
   const state = idleState(songs.length, onBilibili);
+  // FR-T1.9: said once the panel is open, never as a reminder; on a card (design rule 2).
+  const closedLine = closedSentence(st.closed_at_open ?? 0);
+  const closed = closedLine && (
+    <article className="card">
+      <p className="record" role="status">{closedLine}</p>
+    </article>
+  );
   const note = noteAvailable(st.choices, st.words, "me", st.readings) && (
     <article className="card">
       <Go to="note">Your taste in words, so far</Go>
@@ -65,6 +72,7 @@ export function PanelHome({ playing = false, onBilibili = false }: { playing?: b
   if (state === "first-open" || state === "first-open on Bilibili") {
     return (
       <section className="stack-lg">
+        {closed}
         {!playing && (
           <article className="card stack">
             <p className="voice">{onBilibili ? PLAY_HERE : PLAY_ON_BILIBILI}</p>
@@ -101,6 +109,7 @@ export function PanelHome({ playing = false, onBilibili = false }: { playing?: b
   const inPlace = picked === null ? [] : songs.filter((s) => s.facts.key && s.facts.key.strength >= 0.5 && circlePlace(s.facts.key) === picked);
   return (
     <section className="stack-lg">
+      {closed}
       {!playing && (
         <article className="card stack">
           <p className="line">{onBilibili ? PLAY_HERE : PLAY_ON_BILIBILI}</p>

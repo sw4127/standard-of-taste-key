@@ -126,6 +126,8 @@ export interface PlayRow {
   /** The song as the status line names it (title · artist), kept with the play. */
   song_title?: string;
   song_artist?: string;
+  /** FR-T1.9: whether the side panel was open when this play was first stored. Plays stored before T1.9 have none: all were stored by the open panel. */
+  recorded_with?: "panel open" | "panel closed";
 }
 
 /** What the content script reads from the Bilibili page in front of the user (FR-T1.2). */
