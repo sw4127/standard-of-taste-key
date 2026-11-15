@@ -48,7 +48,7 @@ export function EraseEverything() {
   }
   return (
     <div className="stack" role="group" aria-label="Erase everything">
-      <p className="record">This erases all your plays, songs, answers, kept readings and words saved in this browser. You can't undo it.</p>
+      <p className="record">This erases all your songs, answers, kept readings and words saved in this browser. You can't undo it.</p>
       <div className="row">
         <button
           type="button"

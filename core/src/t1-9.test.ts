@@ -534,3 +534,56 @@ describe("the content script stands alone (a classic script cannot import)", () 
     for (const m of imports) if (!m[1]) expect(m[2]).toBe("./page");
   });
 });
+
+describe("whole-build red-team: a hidden tab, the erase sentence, the paused offer", () => {
+  it("a video playing in a hidden tab (where Chrome slows the one-second timer) still reports seconds heard every two seconds, and a new video is noticed before its seconds count", async () => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    vi.useFakeTimers({ toFake: ["setInterval", "Date"] }); // the one-second timer never fires: a hidden tab
+    vi.setSystemTime(new Date(2026, 10, 14, 20, 0, 0));
+    const at = (u: string) => Object.defineProperty(window, "location", { value: new URL(u), configurable: true });
+    at("https://www.bilibili.com/video/BV1ex4y1Ex01");
+    document.body.innerHTML = `<h1 class="video-title">Juniper Varga《Glass Harbour》</h1><video></video>`;
+    const sent: LivePage[] = [];
+    vi.stubGlobal("chrome", { runtime: { sendMessage: (m: LivePage) => (sent.push(m), Promise.resolve()), onMessage: { addListener: () => {} } } });
+    await import("../../extension/src/content");
+    const video = document.querySelector("video")!;
+    Object.defineProperty(video, "paused", { value: false, configurable: true });
+    let t = 0;
+    const tick = () => {
+      t += 0.25;
+      vi.setSystemTime(Date.now() + 250);
+      Object.defineProperty(video, "currentTime", { value: t, configurable: true, writable: true });
+      video.dispatchEvent(new Event("timeupdate"));
+    };
+    video.dispatchEvent(new Event("play"));
+    for (let i = 0; i < 4 * 30; i++) tick(); // thirty seconds of media time, no timer
+    const first = sent.filter((m) => m.play_token === sent.at(-1)!.play_token);
+    expect(first.length).toBeGreaterThanOrEqual(14);
+    expect(Math.abs(first.at(-1)!.heard_seconds - 30)).toBeLessThanOrEqual(2);
+    // Bilibili moves on to the next video in the hidden tab: the address changes, the time starts again.
+    at("https://www.bilibili.com/video/BV1ex4y1Ex02");
+    document.querySelector("h1")!.textContent = "The Quiet Lanterns《Second Lamp》";
+    t = 0;
+    for (let i = 0; i < 4 * 10; i++) tick();
+    const tokens = [...new Set(sent.map((m) => m.play_token))];
+    expect(tokens).toHaveLength(2);
+    const second = sent.filter((m) => m.play_token === tokens[1]);
+    expect(second[0]!.facts!.video_id).toBe("BV1ex4y1Ex02");
+    expect(sent.filter((m) => m.play_token === tokens[0]).at(-1)!.heard_seconds).toBeLessThanOrEqual(31); // the next video's seconds were not added to the first
+    expect(Math.abs(second.at(-1)!.heard_seconds - 10)).toBeLessThanOrEqual(2);
+    const before = sent.length;
+    window.dispatchEvent(new Event("pagehide"));
+    expect(sent.length).toBeGreaterThan(before); // the last seconds go when the tab closes
+    expect(sent.at(-1)!.play_token).toBe(tokens[1]);
+    vi.useRealTimers();
+  });
+  it("the erase sentence is as it was before T1.9 (nothing else changes)", () => {
+    const src = readFileSync(join(import.meta.dirname, "../ui/Footer.tsx"), "utf8");
+    expect(src).toContain("This erases all your songs, answers, kept readings and words saved in this browser. You can't undo it.");
+  });
+  it("while paused, the panel does not offer to read a video", () => {
+    const side = readFileSync(join(import.meta.dirname, "../../extension/src/sidepanel.tsx"), "utf8");
+    expect(side).toContain("<PanelHome playing={!!playing?.facts || !!st.recording_paused} onBilibili={onBilibili} />");
+  });
+});

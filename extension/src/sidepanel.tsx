@@ -48,7 +48,8 @@ function Panel() {
         <PanelHead atHome={view === "home"} onHome={() => setView("home")} />
         <main className="panel-body stack-lg">
           {view === "home" && playing?.facts && <NowPlaying live={{ ...playing, facts: playing.facts }} />}
-          {view === "home" ? <PanelHome playing={!!playing?.facts} onBilibili={onBilibili} /> : SCREENS[view]()}
+          {/* While paused, the offer to read a video is not made: the panel would not read it. */}
+          {view === "home" ? <PanelHome playing={!!playing?.facts || !!st.recording_paused} onBilibili={onBilibili} /> : SCREENS[view]()}
         </main>
         <PanelFoot />
       </div>

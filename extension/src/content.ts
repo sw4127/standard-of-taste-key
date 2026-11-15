@@ -35,13 +35,28 @@ const snapshot = (): LiveMessage => {
   return { type: "key:page", facts, play_token: token, heard_seconds: Math.floor(clock.heard), playing, ended: clock.ended, duration_seconds: duration(), ...(began ? { began_at: began } : {}) };
 };
 
+let lastSent = 0;
+/** How often the media's own time events report a playing video (FR-T1.9: seconds heard within five of the listener's count). */
+export const REPORT_EVERY_MS = 2000;
+
 function send() {
   // The open panel hears this, and so does the background part, which keeps the play while the
   // panel is closed (FR-T1.9). Nothing is sent outside the extension.
+  lastSent = Date.now();
   chrome.runtime.sendMessage(snapshot()).catch(() => undefined);
 }
 
-const onTime = () => media && clock.tick(media.currentTime, !media.paused);
+/**
+ * The media's own time events, which keep firing in a tab that is not in front, where Chrome slows the
+ * one-second timer below to about once a minute. So a video playing in a hidden tab still reports every
+ * two seconds, and a new video Bilibili moves on to is noticed before its seconds are counted.
+ */
+const onTime = () => {
+  if (!media) return;
+  if (location.href !== lastUrl) check();
+  clock.tick(media.currentTime, !media.paused);
+  if (facts && !media.paused && Date.now() - lastSent >= REPORT_EVERY_MS) send();
+};
 const onPlay = () => {
   // FR-T1.9: playing a video again after it reached its end is a new play, with its own row.
   if (clock.ended) newPlay();
@@ -104,4 +119,6 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, reply) =>
 });
 
 setInterval(check, 1000);
+// The last seconds heard before the tab closes or leaves the page.
+addEventListener("pagehide", () => facts && send());
 check();
