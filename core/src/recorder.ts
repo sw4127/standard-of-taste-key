@@ -57,5 +57,11 @@ export async function recordClosed(db: IDBDatabase, msg: LivePage, at: string = 
 /** A play the rule has not yet been tried on: kept with the panel closed, matching waits for the panel. */
 export const needsRule = (p: PlayRow) => !p.match_rule_version;
 
+/**
+ * A lookup that could not reach MusicBrainz (it refuses some calls with "busy", HTTP 503) has not tried
+ * the rule: the play is kept as not yet tried, so the panel tries it again later (FR-T1.9, point 3).
+ */
+export const lookupFailed = (p: PlayRow): PlayRow => ({ ...p, match_rule_version: "" });
+
 /** Plays recorded while the panel was closed that the rule has not yet been tried on (FR-T1.9, point 3). */
 export const waitingClosed = (plays: PlayRow[]) => plays.filter((p) => p.recorded_with === "panel closed" && needsRule(p));

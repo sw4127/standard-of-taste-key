@@ -14,7 +14,7 @@ import type { LivePage, PageFacts, PlayRow, SongFacts } from "../src/model";
 import type { FetchFn } from "../src/sources/http";
 import { recordingPage } from "../src/sources/musicbrainz";
 import { recordingFacts } from "../src/sources/recording";
-import { needsRule } from "../src/recorder";
+import { lookupFailed, needsRule } from "../src/recorder";
 import { edgeClass, edgeStyle } from "./KeyChip";
 import { SongWords } from "./SongWords";
 import { actions, getState, hydrate, useStore } from "./store";
@@ -139,7 +139,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       },
       () => {
         if (gone) return;
-        void actions.savePlay(play.current ?? row);
+        play.current = lookupFailed(play.current ?? row);
+        void actions.savePlay(play.current);
         setStatus({ kind: "unreachable" });
       },
     );

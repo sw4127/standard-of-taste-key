@@ -14,7 +14,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { closedSentence } from "./idle";
 import type { LivePage, PageFacts, PlayRow } from "./model";
-import { needsRule, recordClosed, rowFor, waitingClosed } from "./recorder";
+import { lookupFailed, needsRule, recordClosed, rowFor, waitingClosed } from "./recorder";
 import { loadPlays, openDb, putPlay } from "./storage";
 
 const FACTS: PageFacts = {
@@ -73,6 +73,13 @@ describe("the recorder (core/src/recorder.ts)", () => {
     expect(needsRule({ ...closed, match_rule_version: "v7.2" })).toBe(false);
     const src = readFileSync(join(import.meta.dirname, "../ui/NowPlaying.tsx"), "utf8");
     expect(src).toContain("if (again && sameTitle && !needsRule(again))");
+  });
+  it("a lookup MusicBrainz refused leaves the play not yet tried, so it is tried again later", () => {
+    const tried = { ...rowFor(msg(), null, "2026-11-14T20:00:00")!, match_rule_version: "v7.2" };
+    expect(needsRule(lookupFailed(tried))).toBe(true);
+    expect(lookupFailed(tried)).toMatchObject({ recorded_with: "panel closed", heard_seconds: tried.heard_seconds, started_at: tried.started_at });
+    const src = readFileSync(join(import.meta.dirname, "../ui/NowPlaying.tsx"), "utf8");
+    expect(src).toMatch(/play\.current = lookupFailed\(play\.current \?\? row\);\s*void actions\.savePlay\(play\.current\);\s*setStatus\(\{ kind: "unreachable" \}\)/);
   });
   it("counts only closed plays the rule has not yet been tried on", () => {
     const base = rowFor(msg(), null, "2026-11-14T20:00:00")!;
