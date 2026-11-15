@@ -10,7 +10,7 @@
  */
 import { localIso } from "./localtime";
 import type { LivePage, PageFacts, PlayRow } from "./model";
-import { getPlay, loadSettings, putPlay, type Settings } from "./storage";
+import { loadSettings, updatePlay, updatePlays, type Settings } from "./storage";
 
 export { localIso };
 
@@ -57,18 +57,24 @@ export function rowFor(msg: LivePage, earlier: PlayRow | null, at: string): Play
   };
 }
 
-/** Store one message's play while the panel is closed. Returns the row stored, or null. */
+/**
+ * Store one message's play while the panel is closed. Returns the row stored, or null. The row is read
+ * and written in one transaction, so a mark the opening panel writes meanwhile (counted_at_opening) is
+ * never lost.
+ */
 export async function recordClosed(db: IDBDatabase, msg: LivePage, at: string = localIso()): Promise<PlayRow | null> {
   if (!msg.facts) return null;
   const settings = await loadSettings(db);
   if (settings?.recording_paused) return null;
-  const earlier = await getPlay(db, playIdOf(msg.play_token));
-  const row = rowFor(msg, earlier, at);
-  // A play already on the record is added to (paused was refused above); a new one must pass the whole rule.
-  if (!row || (!earlier && !mayStore(row.started_at, settings))) return null;
-  if (earlier && JSON.stringify(earlier) === JSON.stringify(row)) return earlier;
-  await putPlay(db, row);
-  return row;
+  let kept: PlayRow | null = null;
+  await updatePlay(db, playIdOf(msg.play_token), (earlier) => {
+    const row = rowFor(msg, earlier, at);
+    // A play already on the record is added to (paused was refused above); a new one must pass the whole rule.
+    if (!row || (!earlier && !mayStore(row.started_at, settings))) return null;
+    kept = row;
+    return earlier && JSON.stringify(earlier) === JSON.stringify(row) ? null : row;
+  });
+  return kept;
 }
 
 /** A play the rule has not yet been tried on, and the person has not fixed: kept with the panel closed, matching waits for the panel. */
@@ -80,5 +86,16 @@ export const needsRule = (p: PlayRow) => !p.match_rule_version && p.match_state 
  */
 export const lookupFailed = (p: PlayRow): PlayRow => ({ ...p, match_rule_version: "" });
 
-/** Plays recorded while the panel was closed that the rule has not yet been tried on (FR-T1.9, point 3). */
-export const waitingClosed = (plays: PlayRow[]) => plays.filter((p) => p.recorded_with === "panel closed" && needsRule(p));
+/** FR-T1.9 point 3: a play stored with the panel closed that no opening of the panel has counted yet. */
+export const uncounted = (p: PlayRow) => p.recorded_with === "panel closed" && !p.counted_at_opening;
+
+/**
+ * FR-T1.9 point 3 (defect fix of 2026-11-15): when the panel opens, count the plays stored with the panel
+ * closed that no earlier opening counted, and mark each as counted by this one. One transaction, so two
+ * panels opening at once never both count a play. Naming a song never touches the mark: a lookup
+ * MusicBrainz refused never makes a play count again, and a play named early is still counted once.
+ */
+export async function countClosedAtOpening(db: IDBDatabase, at: string = localIso()): Promise<number> {
+  const marked = await updatePlays(db, (p) => (uncounted(p) ? { ...p, counted_at_opening: at } : null));
+  return marked.length;
+}

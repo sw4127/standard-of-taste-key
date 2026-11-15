@@ -112,6 +112,8 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
       song_title: fix?.song_title, song_artist: fix?.song_artist,
       // FR-T1.9: a play first kept with the panel closed stays marked so.
       recorded_with: again?.recorded_with ?? "panel open",
+      // FR-T1.9 point 3: the opening that counted a closed play stays with it, so it is never counted again.
+      ...(again?.counted_at_opening ? { counted_at_opening: again.counted_at_opening } : {}),
       ...(live.duration_seconds ?? again?.duration_seconds ? { duration_seconds: live.duration_seconds ?? again?.duration_seconds } : {}),
     };
     play.current = row;

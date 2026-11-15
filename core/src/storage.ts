@@ -285,6 +285,34 @@ export async function putPlay(db: IDBDatabase, row: PlayRow): Promise<void> {
   await done(tx);
 }
 
+/**
+ * FR-T1.9: read one play and write what `change` makes of it, in one transaction, so a write another part
+ * of the extension makes between the read and the write is never lost. `change` returns null to write nothing.
+ */
+export async function updatePlay(db: IDBDatabase, play_id: string, change: (earlier: PlayRow | null) => PlayRow | null): Promise<void> {
+  const tx = db.transaction("D1", "readwrite");
+  const os = tx.objectStore("D1");
+  const row = change(((await req(os.get(play_id))) as PlayRow | undefined) ?? null);
+  if (row) os.put(row);
+  await done(tx);
+}
+
+/** FR-T1.9: write what `change` makes of every play it returns a row for, in one transaction; returns the rows written. */
+export async function updatePlays(db: IDBDatabase, change: (p: PlayRow) => PlayRow | null): Promise<PlayRow[]> {
+  const tx = db.transaction("D1", "readwrite");
+  const os = tx.objectStore("D1");
+  const written: PlayRow[] = [];
+  for (const p of (await req(os.getAll())) as PlayRow[]) {
+    const row = change(p);
+    if (row) {
+      os.put(row);
+      written.push(row);
+    }
+  }
+  await done(tx);
+  return written;
+}
+
 /** D8, the one settings row, or null before anything was saved. */
 export async function loadSettings(db: IDBDatabase): Promise<Settings | null> {
   return ((await req(db.transaction("D8").objectStore("D8").get(1))) as Settings | undefined) ?? null;

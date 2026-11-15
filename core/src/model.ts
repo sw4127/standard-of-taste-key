@@ -130,6 +130,12 @@ export interface PlayRow {
   recorded_with?: "panel open" | "panel closed";
   /** FR-T1.9: the video's own length, read from the page's player, so a play matched later passes rule v7.2's length check as it would have live. */
   duration_seconds?: number;
+  /**
+   * FR-T1.9 point 3 (defect fix of 2026-11-15): for a play stored with the panel closed, the local time of
+   * the panel opening whose sentence counted it. Set once and never changed, so each such play is counted
+   * once, whatever happens to its song afterwards.
+   */
+  counted_at_opening?: string;
 }
 
 /** What the content script reads from the Bilibili page in front of the user (FR-T1.2). */

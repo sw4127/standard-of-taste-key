@@ -14,7 +14,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { closedSentence } from "./idle";
 import type { LivePage, PageFacts, PlayRow } from "./model";
-import { localIso, lookupFailed, mayStore, needsRule, recordClosed, rowFor, waitingClosed } from "./recorder";
+import { countClosedAtOpening, localIso, lookupFailed, mayStore, needsRule, recordClosed, rowFor, uncounted } from "./recorder";
 import { exportRecord } from "./numbers";
 import { eraseAll, loadPlays, loadSettings, openDb, putPlay, type Settings } from "./storage";
 
@@ -82,10 +82,121 @@ describe("the recorder (core/src/recorder.ts)", () => {
     const src = readFileSync(join(import.meta.dirname, "../ui/NowPlaying.tsx"), "utf8");
     expect(src).toMatch(/play\.current = lookupFailed\(play\.current \?\? row\);\s*void actions\.savePlay\(play\.current\);\s*setStatus\(\{ kind: "unreachable" \}\)/);
   });
-  it("counts only closed plays the rule has not yet been tried on", () => {
+  it("a play counted by an opening is not counted again; plays stored with the panel open, or before T1.9, are never counted", () => {
     const base = rowFor(msg(), null, "2026-11-14T20:00:00")!;
-    const rows: PlayRow[] = [base, { ...base, play_id: "x", match_rule_version: "v7.2" }, { ...base, play_id: "y", recorded_with: "panel open" }, { ...base, play_id: "z", recorded_with: undefined }];
-    expect(waitingClosed(rows).map((r) => r.play_id)).toEqual([base.play_id]);
+    const rows: PlayRow[] = [
+      base, { ...base, play_id: "named", match_rule_version: "v7.2" }, { ...base, play_id: "counted", counted_at_opening: "2026-11-14T21:00:00" },
+      { ...base, play_id: "open", recorded_with: "panel open" }, { ...base, play_id: "old", recorded_with: undefined },
+    ];
+    expect(rows.filter(uncounted).map((r) => r.play_id)).toEqual([base.play_id, "named"]);
+  });
+});
+
+// ---- Defect A (2026-11-15): each closed play is counted once, at the first opening after it was stored ----
+
+/** One opening of the panel: a fresh panel document reads the record, as Chrome loads the side panel anew each time. */
+async function openPanel(factory: IDBFactory) {
+  vi.resetModules();
+  vi.stubGlobal("indexedDB", factory);
+  const store = await import("../ui/store");
+  await store.hydrate();
+  return { store, sentence: closedSentence(store.getState().closed_at_open ?? 0) };
+}
+
+describe("defect A: the panel's sentence counts each play stored with the panel closed exactly once", () => {
+  beforeEach(() => vi.unstubAllGlobals());
+  it("seven closed plays, two of them named by the catch-up before the panel was next opened: the sentence says seven, then nothing", async () => {
+    const factory = new IDBFactory();
+    const db = await openDb(factory);
+    for (let i = 1; i <= 7; i++) await recordClosed(db, msg({ play_token: `p${i}` }), `2026-11-15T00:0${i}:00`);
+    // Two of the seven were already named (a rule version and a song), as an earlier catch-up leaves them.
+    for (const id of ["play-p1", "play-p2"]) {
+      const row = (await loadPlays(db)).find((p) => p.play_id === id)!;
+      await putPlay(db, { ...row, recording_id: "rec-x", match_state: "certain", match_rule_version: "v7.2" });
+    }
+    db.close();
+    expect((await openPanel(factory)).sentence).toBe("The Key recorded seven plays while this panel was closed.");
+    expect((await openPanel(factory)).sentence).toBeNull(); // no sentence when the number is zero
+    const marks = (await loadPlays(await openDb(factory))).map((p) => p.counted_at_opening);
+    expect(marks.every(Boolean)).toBe(true);
+  });
+  it("a play MusicBrainz refused is counted at the first opening only, not again at the next", async () => {
+    const factory = new IDBFactory();
+    const db = await openDb(factory);
+    await recordClosed(db, msg({ play_token: "refused" }), "2026-11-15T01:00:00");
+    db.close();
+    const first = await openPanel(factory);
+    expect(first.sentence).toBe("The Key recorded one play while this panel was closed.");
+    const { catchUp } = await import("../ui/catchup");
+    const refused = await catchUp({ fetchFn: vi.fn(), match: async () => Promise.reject(new Error("HTTP 503")) });
+    expect(refused.failed).toBe(1);
+    // The refused play is left to be tried again.
+    expect(needsRule((await loadPlays(await openDb(factory)))[0]!)).toBe(true);
+    const second = await openPanel(factory);
+    expect(second.sentence).toBeNull();
+    await catchUp({ fetchFn: vi.fn(), match: async () => Promise.reject(new Error("HTTP 503")) });
+    expect((await openPanel(factory)).sentence).toBeNull();
+  });
+  it("plays made in a second window while a panel stays open in the first are counted at the next opening, once", async () => {
+    const bg = await loadBackground([1]); // a panel is open in window 1
+    const factory = (globalThis as { indexedDB: IDBFactory }).indexedDB;
+    const db = await openDb(factory);
+    await recordClosed(db, msg({ play_token: "before" }), "2026-11-15T02:00:00");
+    db.close();
+    const panel1 = await openPanel(factory);
+    expect(panel1.sentence).toBe("The Key recorded one play while this panel was closed.");
+    await bg.send(msg({ play_token: "w2-a", heard_seconds: 5 }), 2);
+    await bg.send(msg({ play_token: "w2-b", heard_seconds: 5 }), 2);
+    await bg.send(msg({ play_token: "w1", heard_seconds: 5 }), 1); // window 1's panel keeps its own play: not stored here
+    expect((await bg.plays()).filter((p) => p.recorded_with === "panel closed").map((p) => p.play_id).sort()).toEqual(["play-before", "play-w2-a", "play-w2-b"]);
+    // Panel 1 is still open: its sentence was read once, when it opened, and is not changed.
+    expect(panel1.store.getState().closed_at_open).toBe(1);
+    expect((await openPanel(factory)).sentence).toBe("The Key recorded two plays while this panel was closed.");
+    expect((await openPanel(factory)).sentence).toBeNull();
+  });
+  it("the background part's write of a play never drops the mark an opening panel writes at the same moment", async () => {
+    const factory = new IDBFactory();
+    const db = await openDb(factory);
+    await recordClosed(db, msg({ play_token: "race", heard_seconds: 3 }), "2026-11-15T03:00:00");
+    // The two run together: the background part adds seconds while the panel marks the play counted, the
+    // panel starting a moment after the background part began (its read is under way).
+    const bgWrite = recordClosed(db, msg({ play_token: "race", heard_seconds: 9 }));
+    await new Promise((r) => setTimeout(r, 2));
+    const n = await countClosedAtOpening(db, "2026-11-15T03:00:05");
+    await bgWrite;
+    await recordClosed(db, msg({ play_token: "race", heard_seconds: 12 }));
+    const [p] = await loadPlays(db);
+    expect(n).toBe(1);
+    expect(p).toMatchObject({ heard_seconds: 12, counted_at_opening: "2026-11-15T03:00:05" });
+    expect(await countClosedAtOpening(db)).toBe(0);
+  });
+  it("a closed play the panel then opens on, in the same tab, keeps its mark when the panel saves it, and is not counted again", async () => {
+    const factory = new IDBFactory();
+    const db = await openDb(factory);
+    await recordClosed(db, msg({ play_token: "same-tab", heard_seconds: 20 }), "2026-11-15T04:00:00");
+    db.close();
+    const first = await openPanel(factory);
+    expect(first.sentence).toBe("The Key recorded one play while this panel was closed.");
+    // The card on screen matches the play: MusicBrainz (a stand-in) finds nothing, and the play is saved with more seconds.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ count: 0, recordings: [] }), { status: 200, headers: { "content-type": "application/json" } })));
+    const { NowPlaying } = await import("../ui/NowPlaying");
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => root.render(createElement(NowPlaying, { live: { ...msg({ play_token: "same-tab", heard_seconds: 26 }), facts: FACTS } })));
+    await act(async () => new Promise((r) => setTimeout(r, 1500)));
+    act(() => root.unmount());
+    host.remove();
+    const [p] = await loadPlays(await openDb(factory));
+    expect(p).toMatchObject({ play_id: "play-same-tab", heard_seconds: 26, recorded_with: "panel closed" });
+    expect(p!.counted_at_opening).toBeTruthy();
+    expect((await openPanel(factory)).sentence).toBeNull();
+  });
+  it("the background part reads and writes a play in one step (a gap too short for a test to time is closed by the code's shape)", () => {
+    const src = readFileSync(join(import.meta.dirname, "recorder.ts"), "utf8");
+    const body = src.slice(src.indexOf("export async function recordClosed"), src.indexOf("export const needsRule"));
+    expect(body).toContain("await updatePlay(db, playIdOf(msg.play_token), (earlier) => {");
+    expect(body).not.toMatch(/getPlay|putPlay/);
   });
 });
 

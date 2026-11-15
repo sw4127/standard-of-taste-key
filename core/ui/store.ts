@@ -9,7 +9,7 @@ import { readFound, type AlbumPart, type Found, type HistoryRow, type KeyRow, ty
 import type { Choice, Words } from "../src/note";
 import { deleteConnection, loadConnection, putConnection } from "../src/storage";
 import { viewOf, type Connection, type ConnectionView, type ReadingRow, type Verdict } from "../src/reading/rows";
-import { localIso, mayStore, waitingClosed } from "../src/recorder";
+import { countClosedAtOpening, localIso, mayStore } from "../src/recorder";
 import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadNexts, loadPlays, openDb, putHistory, putKey, putNext, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
@@ -43,7 +43,7 @@ export interface State {
   connection?: ConnectionView;
   /** FR-T9.9: may the reading quote words about a loss or a hard time? Undefined until he answers. */
   quote_hard?: boolean;
-  /** FR-T1.9: plays recorded while the panel was closed and not yet matched, counted when the panel opened. */
+  /** FR-T1.9: plays stored with the panel closed that no earlier opening counted, counted when this panel opened. */
   closed_at_open?: number;
   /** FR-T1.9: "Pause recording", and when recording was last switched back on (local time). */
   recording_paused?: boolean;
@@ -177,8 +177,10 @@ export function hydrate(): Promise<void> {
       const loaded = fromSnapshot(await loadAll(d));
       const conn = await loadConnection(d);
       memKey = conn;
+      // FR-T1.9 point 3: each play stored with the panel closed is counted once, at the first opening after it was stored.
+      const closed = await countClosedAtOpening(d);
       const plays = await loadPlays(d);
-      state = { ...loaded, closed_at_open: waitingClosed(plays).length, histories: await loadHistories(d), plays, keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now(), ...(conn ? { connection: viewOf(conn) } : {}) };
+      state = { ...loaded, closed_at_open: closed, histories: await loadHistories(d), plays, keys: await loadKeys(d), nexts: await loadNexts(d), installed_at: loaded.installed_at ?? now(), ...(conn ? { connection: viewOf(conn) } : {}) };
     } catch {
       state = { ...state, ready: true };
     }
