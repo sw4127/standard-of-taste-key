@@ -708,7 +708,7 @@ describe("whole-build red-team: a hidden tab, the erase sentence, the paused off
 const A = { url: "https://www.bilibili.com/video/BV1ex4y1Ex0A", title: "Juniper Varga《Glass Harbour》", length: 257 };
 const B = { url: "https://www.bilibili.com/video/BV1ex4y1Ex0B", title: "The Quiet Lanterns《Second Lamp》", length: 226 };
 
-async function stagePage(start: { url: string; title: string }, opts: { playingAtLoad?: { length: number } } = {}) {
+async function stagePage(start: { url: string; title: string }, opts: { playingAtLoad?: { length: number }; hidden?: boolean } = {}) {
   vi.resetModules();
   vi.unstubAllGlobals();
   vi.useFakeTimers({ toFake: ["setInterval", "Date"] });
@@ -767,7 +767,9 @@ async function stagePage(start: { url: string; title: string }, opts: { playingA
     /** Seconds of time pass; while playing, the media's clock moves and its time events fire. */
     run: (seconds: number) => {
       for (let i = 0; i < seconds * 4; i++) {
-        vi.advanceTimersByTime(250);
+        // In a hidden tab Chrome runs the one-second timer about once a minute: only the clock moves.
+        if (opts.hidden) vi.setSystemTime(Date.now() + 250);
+        else vi.advanceTimersByTime(250);
         if (!paused) {
           t += 0.25;
           fire("timeupdate");
@@ -925,6 +927,27 @@ describe("defect B: a change of video inside one page never mixes two videos' fa
     const resumed = await again.s.rows({ settings_id: 1, recording_resumed_at: again.resumedAt });
     expect(resumed.map((r) => [r.title, r.length])).toEqual([[B.title, 226]]);
     expect(Math.abs(resumed[0]!.heard - 21)).toBeLessThanOrEqual(1);
+  });
+  it("(1) and (2) in a tab behind another (the one-second timer stopped): the hand-over still happens, and no row mixes two videos", async () => {
+    for (const afterEnd of [false, true]) {
+      const s = await stagePage(A, { hidden: true });
+      s.load(A.length);
+      s.play();
+      s.run(30);
+      if (afterEnd) s.end(); // Bilibili's own autoplay at the end of a video
+      s.load(B.length);
+      s.play();
+      s.run(1);
+      s.page(B.url);
+      s.run(3);
+      s.title(B.title);
+      s.run(30);
+      noMixing(s.sent, LENGTHS);
+      const rows = await s.rows();
+      expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [B.title, 226]]);
+      expect(rows[0]!.heard).toBeLessThanOrEqual(30);
+      expect(Math.abs(rows[1]!.heard - 34)).toBeLessThanOrEqual(1);
+    }
   });
   it("(3) a tab Chrome restored: its page shows one video while its player plays another; only the played video gets a row", async () => {
     const s = await stagePage(A, { playingAtLoad: { length: B.length } });

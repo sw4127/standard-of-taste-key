@@ -35,3 +35,41 @@ is closed (a badge, a mark, a notice). There should be nothing.
   the seconds played during the pause are added when you switch recording back on.
 - Songs for closed plays are named when the panel opens, one at a time. MusicBrainz refused about one call in
   three on 2026-11-14; a refused one is tried again at the next opening.
+
+## Re-check after the T1.9 defect fix (2026-11-15)
+
+Two faults were fixed after Bob's checks of 2026-11-15. (A) The panel's sentence counted closed plays still
+waiting for a song name. Now it counts each play kept with the panel closed exactly once, at the first opening
+after it was kept. (B) When the video changed inside one Bilibili page, a row could take the next video's
+length, or a row could be made with 0 seconds heard. Now each row is one video's own. Bob runs these two rows;
+the build does not. Write only "Passed", "Failed" and what you saw, never a song or video title.
+
+**Before you start.**
+1. Open `chrome://extensions`. "The Key" is loaded unpacked from
+   `C:\Users\siqiw\Desktop\standard-of-taste-key\extension\dist`, which is already rebuilt. Press its reload arrow.
+2. Reload every Bilibili tab already open: a tab opened before the reload keeps the old script.
+3. **Open the panel once and close it.** That first opening counts the plays kept before the fix, so row A
+   starts from zero.
+
+**New in the export.** A play kept with the panel closed now carries `counted_at_opening`: the time of the panel
+opening whose sentence counted it. Two plays with the same time were counted by the same opening.
+
+| # | What to do | What passes | Verdict |
+|---|---|---|---|
+| A | With the panel closed, play two videos for at least 30 seconds each. Open the panel and read its sentence. Close it, play one more video, and open it again. | The first opening says "The Key recorded two plays while this panel was closed." The second says "The Key recorded one play while this panel was closed." | |
+| B | In one Bilibili page, click from one video to another in its list, then back to the first, playing each for at least 30 seconds. Then export. | Each row's `duration_seconds` is its own video's length (the length Bilibili shows for that video), and no row has `heard_seconds` 0. | |
+
+**Check 5 begins after this.** Bob's organic listening (check 5 above) starts once this fix is reloaded, so that the
+record it reads is made by the fixed recorder. Recommended before it begins: keep row B's export, then press
+"Erase everything in this browser" and confirm. The record then holds neither these test plays nor the plays the
+old recorder made after the erase of check 4.
+
+**Known limits after the fix** (so a result is not misread):
+- When the video changes, the panel names the new one once the page has settled: at once when the player and
+  the page have both moved on, otherwise after the page has held still for three seconds. A page just opened
+  or restored always waits three seconds. No seconds are lost to the wait; they are added to the new play.
+- A video heard for less than that wait before its tab is closed is not kept.
+- A song you fix on a video you never play is not kept, because no row is kept before one second is heard.
+- If Bilibili's player ever reports a different length for the same video in the middle of a play, that listen is
+  kept as two rows of the same video. This was chosen over the other error (a row taking seconds of the next video);
+  if row B shows two rows for one listen, say so.
