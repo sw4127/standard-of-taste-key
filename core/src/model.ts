@@ -128,6 +128,8 @@ export interface PlayRow {
   song_artist?: string;
   /** FR-T1.9: whether the side panel was open when this play was first stored. Plays stored before T1.9 have none: all were stored by the open panel. */
   recorded_with?: "panel open" | "panel closed";
+  /** FR-T1.9: the video's own length, read from the page's player, so a play matched later passes rule v7.2's length check as it would have live. */
+  duration_seconds?: number;
 }
 
 /** What the content script reads from the Bilibili page in front of the user (FR-T1.2). */
@@ -152,6 +154,8 @@ export interface LivePage {
   ended: boolean;
   /** The video's own length in seconds, read from the page's player, when it has one (FR-T1.4: "same length as this video"). */
   duration_seconds?: number;
+  /** FR-T1.9: local time this viewing first played; a play that began while recording was paused, or before an erase, is never stored. */
+  began_at?: string;
 }
 
 /** D5 Keys: every line shown on the panel, with what the person did with it (T2.2–T2.6). */

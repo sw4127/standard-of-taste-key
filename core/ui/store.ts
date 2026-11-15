@@ -9,7 +9,7 @@ import { readFound, type AlbumPart, type Found, type HistoryRow, type KeyRow, ty
 import type { Choice, Words } from "../src/note";
 import { deleteConnection, loadConnection, putConnection } from "../src/storage";
 import { viewOf, type Connection, type ConnectionView, type ReadingRow, type Verdict } from "../src/reading/rows";
-import { waitingClosed } from "../src/recorder";
+import { localIso, mayStore, waitingClosed } from "../src/recorder";
 import { deleteHistory, eraseAll, fromRows, loadAll, loadHistories, loadKeys, loadNexts, loadPlays, openDb, putHistory, putKey, putNext, putPlay, saveAll, toRows, type Person, type RecordingRow, type Snapshot, type UsageEvent } from "../src/storage";
 
 export interface State {
@@ -45,6 +45,9 @@ export interface State {
   quote_hard?: boolean;
   /** FR-T1.9: plays recorded while the panel was closed and not yet matched, counted when the panel opened. */
   closed_at_open?: number;
+  /** FR-T1.9: "Pause recording", and when recording was last switched back on (local time). */
+  recording_paused?: boolean;
+  recording_resumed_at?: string;
 }
 
 const EMPTY: State = { ready: false, people: [], songs: [], facts: {}, matchedBy: {}, disputed: [], choices: [], words: [], events: [], histories: {}, plays: [], keys: [], nexts: [], story_shown_count: 0, readings: [] };
@@ -91,6 +94,8 @@ export function toSnapshot(s: State): Snapshot {
       story_shown_count: s.story_shown_count, ...(s.story_last_shown_on ? { story_last_shown_on: s.story_last_shown_on } : {}),
       ...(s.birth_year ? { birth_year: s.birth_year } : {}),
       ...(s.quote_hard !== undefined ? { quote_hard: s.quote_hard } : {}),
+      ...(s.recording_paused ? { recording_paused: true } : {}),
+      ...(s.recording_resumed_at ? { recording_resumed_at: s.recording_resumed_at } : {}),
     }],
     events: s.events,
     people,
@@ -129,6 +134,8 @@ export function fromSnapshot(snap: Snapshot): State {
     story_last_shown_on: settings?.story_last_shown_on,
     birth_year: settings?.birth_year,
     quote_hard: settings?.quote_hard,
+    recording_paused: settings?.recording_paused,
+    recording_resumed_at: settings?.recording_resumed_at,
     readings: byTime(snap.readings ?? [], (r) => r.made_at),
     installed_at: settings?.installed_at,
     last_erased_at: settings?.last_erased_at,
@@ -186,6 +193,10 @@ export const storageFailed = () => saveFailed;
 // The key is read from D16 only when a call is made, and is never put in the state screens read.
 
 let memKey: Connection | null = null;
+
+/** FR-T1.9: plays seen in this panel that may not be stored; lines, suggestions and events about them are not kept either. */
+const unstored = new Set<string>();
+export const isUnstored = (play_id: string) => unstored.has(play_id);
 
 /** The saved key, for a call to api.anthropic.com and nothing else. */
 export async function savedKey(): Promise<string | null> {
@@ -269,6 +280,7 @@ export const actions = {
   },
   /** FR-T8.1: log what happened on the panel or a page (D9). */
   log(kind: UsageEvent["kind"], refs: Refs = {}) {
+    if (refs.play_id && unstored.has(refs.play_id)) return;
     set({ ...state, events: [...state.events, ev(kind, refs)] });
   },
   /** T5.7: keep a person's plays read from their Spotify file (replacing any read before). */
@@ -282,8 +294,18 @@ export const actions = {
     set({ ...state, histories: rest });
     if (hasIdb()) await deleteHistory(await db(), person_id).catch(() => void (saveFailed = true));
   },
-  /** FR-T1.2: add or update one play (its seconds heard grow while it plays). */
+  /**
+   * FR-T1.2: add or update one play (its seconds heard grow while it plays). FR-T1.9: a play that may
+   * not be stored (recording paused, or begun before recording was switched back on or before an erase)
+   * is kept nowhere, and nothing that points at it is logged.
+   */
   async savePlay(row: PlayRow) {
+    if (unstored.has(row.play_id)) return; // refused once in this panel: refused for good
+    const kept = state.plays.some((p) => p.play_id === row.play_id);
+    if (state.recording_paused || (!kept && !mayStore(row.started_at, state))) {
+      if (!kept) unstored.add(row.play_id);
+      return;
+    }
     const i = state.plays.findIndex((p) => p.play_id === row.play_id);
     const plays = i < 0 ? [...state.plays, row] : state.plays.map((p, j) => (j === i ? row : p));
     state = { ...state, plays };
@@ -292,6 +314,7 @@ export const actions = {
   },
   /** FR-T2.2–T2.6: add or update one line shown (D5). */
   async saveKey(row: KeyRow) {
+    if (unstored.has(row.play_id)) return;
     const i = state.keys.findIndex((k) => k.key_id === row.key_id);
     state = { ...state, keys: i < 0 ? [...state.keys, row] : state.keys.map((k, j) => (j === i ? row : k)) };
     emit();
@@ -299,6 +322,7 @@ export const actions = {
   },
   /** FR-T4.5: add or update one next record (D7). */
   async saveNext(row: NextRow) {
+    if (unstored.has(row.play_id)) return;
     const i = state.nexts.findIndex((n) => n.suggestion_id === row.suggestion_id);
     state = { ...state, nexts: i < 0 ? [...state.nexts, row] : state.nexts.map((n, j) => (j === i ? row : n)) };
     emit();
@@ -365,15 +389,35 @@ export const actions = {
   addTheirQuestions(r: ReadingRow) {
     set({ ...state, readings: [...state.readings.filter((x) => x.person_id !== r.person_id), r] });
   },
-  /** FR-T1.6: clears every store in this browser; only the time of the erase is kept. */
+  /** FR-T1.9 point 3: the song the rule named for a play already on the record. Naming is not storing a play, so a pause does not stop it. */
+  async saveMatch(row: PlayRow) {
+    if (!state.plays.some((p) => p.play_id === row.play_id)) return;
+    state = { ...state, plays: state.plays.map((p) => (p.play_id === row.play_id ? row : p)) };
+    emit();
+    if (hasIdb() && state.ready) await putPlay(await db(), row).catch(() => void (saveFailed = true));
+  },
+  /** FR-T1.9: "Pause recording". Switching it off notes when, so a play begun while paused stays unstored. */
+  setRecordingPaused(paused: boolean) {
+    set({ ...state, recording_paused: paused, ...(paused ? {} : { recording_resumed_at: localIso() }) });
+  },
+  /** FR-T1.9 point 5: the plays as D1 holds them now, the background part's included, for the export. */
+  async freshPlays(): Promise<PlayRow[]> {
+    if (!hasIdb() || !state.ready) return state.plays;
+    const plays = await loadPlays(await db()).catch(() => state.plays);
+    state = { ...state, plays };
+    emit();
+    return plays;
+  },
+  /** FR-T1.6: clears every store in this browser; only the time of the erase is kept (and, FR-T1.9, a pause). */
   async eraseEverything() {
     const at = now();
     memKey = null;
+    const paused = !!state.recording_paused;
     if (hasIdb()) {
       await saving;
-      await eraseAll(await db(), at);
+      await eraseAll(await db(), at, { recording_paused: paused });
     }
-    state = { ...EMPTY, ready: true, installed_at: undefined, last_erased_at: at };
+    state = { ...EMPTY, ready: true, installed_at: undefined, last_erased_at: at, ...(paused ? { recording_paused: true } : {}) };
     emit();
   },
 };

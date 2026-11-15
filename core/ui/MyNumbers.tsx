@@ -26,9 +26,11 @@ export function MyNumbers() {
   const later = laterPlayed(st.nexts, st.plays);
   const people = others(st);
 
-  const download = () => {
+  const download = async () => {
     const at = new Date().toISOString();
-    const data = exportRecord({ snapshot: toSnapshot(st), plays: st.plays, keys: st.keys, nexts: st.nexts, histories: st.histories }, includeOthers, at);
+    // FR-T1.9 point 5: D1 read afresh, so plays the background part kept after this panel opened are in the file.
+    const plays = await actions.freshPlays();
+    const data = exportRecord({ snapshot: toSnapshot(st), plays, keys: st.keys, nexts: st.nexts, histories: st.histories }, includeOthers, at);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
     a.download = `my-record-${at.slice(0, 10)}.json`;
@@ -83,7 +85,7 @@ export function MyNumbers() {
             <input type="checkbox" checked={includeOthers} onChange={(e) => setIncludeOthers(e.target.checked)} /> Include other people&#39;s data ({people.map((p) => p.label).join(", ")})
           </label>
         )}
-        <button type="button" className="act" onClick={download}>
+        <button type="button" className="act" onClick={() => void download()}>
           Export my record
         </button>
       </div>

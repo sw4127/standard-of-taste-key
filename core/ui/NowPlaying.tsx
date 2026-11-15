@@ -17,7 +17,7 @@ import { recordingFacts } from "../src/sources/recording";
 import { lookupFailed, needsRule } from "../src/recorder";
 import { edgeClass, edgeStyle } from "./KeyChip";
 import { SongWords } from "./SongWords";
-import { actions, getState, hydrate, useStore } from "./store";
+import { actions, getState, hydrate, isUnstored, useStore } from "./store";
 
 const fetchFn: FetchFn = (url) => fetch(url);
 const localNow = () => {
@@ -37,10 +37,11 @@ function factsFrom(c: Candidate): SongFacts {
 }
 
 /** FR-T2.1: the status line uses the candidate's facts at once; credits, places, key and tempo follow. */
-function keepWithFacts(c: Candidate, matched_by: "rule" | "my fix", play_id?: string) {
+export function keepWithFacts(c: Candidate, matched_by: "rule" | "my fix", play_id?: string, fetchWith: FetchFn = fetchFn): Promise<void> {
+  if (play_id && isUnstored(play_id)) return Promise.resolve(); // FR-T1.9: a play that may not be stored leaves no recording behind
   actions.keepRecording(factsFrom(c), matched_by);
   if (play_id) noticeLaterPlay(c.recording_id, play_id);
-  void recordingFacts(c, { fetchFn }).then((full) => actions.keepRecording(full, matched_by));
+  return recordingFacts(c, { fetchFn: fetchWith }).then((full) => actions.keepRecording(full, matched_by), () => undefined);
 }
 
 /** FR-T4.5: a later play of a track from a suggested record is marked on that suggestion (D7). */
@@ -103,17 +104,21 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     const row: PlayRow = {
       play_id: `play-${live.play_token}`, source: "live page", video_id: f.video_id, part_number: f.part_number, page_title: f.page_title,
       uploader_name: f.uploader_name, uploader_id: f.uploader_id, list_title: f.list_title, list_position: f.list_position,
-      page_tags: f.page_tags, started_at: again?.started_at ?? localNow(), heard_seconds: Math.max(again?.heard_seconds ?? 0, live.heard_seconds),
+      page_tags: f.page_tags, started_at: again?.started_at ?? live.began_at ?? localNow(), heard_seconds: Math.max(again?.heard_seconds ?? 0, live.heard_seconds),
       reached_end: live.ended ? "yes" : "no",
-      recording_id: fix?.recording_id ?? "", match_state: fix?.match_state ?? "unsure", match_rule_version: RULE_VERSION,
+      recording_id: fix?.recording_id ?? "", match_state: fix?.match_state ?? "unsure",
+      // The rule's version is written when the rule answers (or a fix decides), never before: a panel closed mid-lookup leaves the play to be tried again.
+      match_rule_version: fix ? RULE_VERSION : "",
       song_title: fix?.song_title, song_artist: fix?.song_artist,
       // FR-T1.9: a play first kept with the panel closed stays marked so.
       recorded_with: again?.recorded_with ?? "panel open",
+      ...(live.duration_seconds ?? again?.duration_seconds ? { duration_seconds: live.duration_seconds ?? again?.duration_seconds } : {}),
     };
     play.current = row;
     savedHeard.current = row.heard_seconds;
-    if (again) void actions.savePlay(row); // the match made on the stale title is cleared at once
-    else actions.log("song_started", { play_id: row.play_id });
+    // Saved first, so the store's rule (FR-T1.9: not while paused) decides before anything about it is logged.
+    void actions.savePlay(row); // and a match made on a stale title is cleared at once
+    if (!again) actions.log("song_started", { play_id: row.play_id });
     if (fix) {
       setStatus({ kind: "match", result: null });
       void actions.savePlay(row);
@@ -128,9 +133,9 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
         const latest = play.current?.play_id === row.play_id ? play.current : row;
         if (result.state === "certain") {
           keepWithFacts(result.candidate, "rule", row.play_id);
-          play.current = { ...latest, recording_id: result.candidate.recording_id, match_state: "certain", song_title: result.candidate.title, song_artist: result.candidate.artist_credit };
+          play.current = { ...latest, recording_id: result.candidate.recording_id, match_state: "certain", song_title: result.candidate.title, song_artist: result.candidate.artist_credit, match_rule_version: RULE_VERSION };
         } else {
-          play.current = latest;
+          play.current = { ...latest, match_rule_version: RULE_VERSION };
         }
         void actions.savePlay(play.current);
         actions.log("key_ready", { play_id: row.play_id, value: result.state === "certain" ? "certain" : `silent: ${result.reason}` });

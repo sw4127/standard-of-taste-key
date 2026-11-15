@@ -7,6 +7,8 @@
     "./design/cardstock.css": "./design/cardstock.css",
     "./design/fonts": "./design/fonts.ts",
     "./design/*": "./src/design/*.ts",
+    "./ui/store": "./ui/store.ts",
+    "./ui/catchup": "./ui/catchup.ts",
     "./ui/*": "./ui/*.tsx",
     "./src/*": "./src/*.ts"
   },

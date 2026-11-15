@@ -113,6 +113,10 @@ export interface Settings {
   birth_year?: number;
   /** FR-T9.9: "My answers may mention a loss or a hard time. Let the reading quote them." Asked once. */
   quote_hard?: boolean;
+  /** FR-T1.9: "Pause recording". While on, no play is stored, panel open or closed. */
+  recording_paused?: boolean;
+  /** FR-T1.9: local time recording was last switched back on; a play that began before it is not stored. */
+  recording_resumed_at?: string;
 }
 
 export interface Snapshot {
@@ -261,12 +265,15 @@ export async function saveAll(db: IDBDatabase, snap: Snapshot): Promise<void> {
   await done(tx);
 }
 
-/** FR-T1.6: clear every store in this browser, then record when. */
-export async function eraseAll(db: IDBDatabase, at: string): Promise<void> {
+/**
+ * FR-T1.6: clear every store in this browser, then record when. FR-T1.9: a person who paused recording
+ * stays paused; an erase never switches recording back on.
+ */
+export async function eraseAll(db: IDBDatabase, at: string, keep: Pick<Settings, "recording_paused"> = {}): Promise<void> {
   const names = [...db.objectStoreNames];
   const tx = db.transaction(names, "readwrite");
   for (const n of names) tx.objectStore(n).clear();
-  tx.objectStore("D8").put({ settings_id: 1, last_erased_at: at } satisfies Settings);
+  tx.objectStore("D8").put({ settings_id: 1, last_erased_at: at, ...(keep.recording_paused ? { recording_paused: true } : {}) } satisfies Settings);
   await done(tx);
 }
 
@@ -276,6 +283,11 @@ export async function putPlay(db: IDBDatabase, row: PlayRow): Promise<void> {
   const tx = db.transaction("D1", "readwrite");
   tx.objectStore("D1").put(row);
   await done(tx);
+}
+
+/** D8, the one settings row, or null before anything was saved. */
+export async function loadSettings(db: IDBDatabase): Promise<Settings | null> {
+  return ((await req(db.transaction("D8").objectStore("D8").get(1))) as Settings | undefined) ?? null;
 }
 
 /** One play by its ID (FR-T1.9: the recorder adds to a row, never replaces what the panel matched). */

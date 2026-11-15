@@ -51,6 +51,16 @@ export function readPage(doc: Document, url: string): PageFacts | null {
   };
 }
 
+/**
+ * Local time, ISO without zone, as D1's started_at is kept (FR-T1.9: a play's start). A copy of
+ * core/src/localtime.ts, kept here because content.js must stand alone: a helper shared with the
+ * background part would be split into a chunk the content script cannot import. t1-9.test.ts checks
+ * the two agree, and scripts/check-content.mjs fails the build if content.js imports anything.
+ */
+export function localIso(d: Date = new Date()): string {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+}
+
 /** How long to wait for Bilibili to redraw the title after it has changed the address. */
 export const TITLE_WAIT_MS = 4000;
 
