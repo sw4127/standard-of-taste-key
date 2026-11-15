@@ -34,16 +34,20 @@ const pageFields = (f: PageFacts) => ({
 
 /**
  * The row to store for one message, or null when there is nothing to store: a page that is not a
- * video page, or a video page that has not been played. An earlier row for the same play is added to,
- * never replaced: its start, how it was recorded and anything the panel matched are kept.
+ * video page, or a video not yet heard for a second (T1.9 defect fix: a row is never begun at 0 seconds,
+ * so a video that never played leaves none). An earlier row for the same play is added to, never
+ * replaced: its start, how it was recorded, its length and anything the panel matched are kept, and it
+ * never takes another video's page.
  */
 export function rowFor(msg: LivePage, earlier: PlayRow | null, at: string): PlayRow | null {
   const f = msg.facts;
   if (!f) return null;
-  if (!earlier && !msg.playing && msg.heard_seconds <= 0) return null;
+  if (!earlier && msg.heard_seconds < 1) return null;
+  if (earlier && (earlier.video_id !== f.video_id || earlier.part_number !== f.part_number)) return null;
   const heard = Math.max(earlier?.heard_seconds ?? 0, msg.heard_seconds);
   const reached_end: PlayRow["reached_end"] = msg.ended || earlier?.reached_end === "yes" ? "yes" : "no";
-  const length = msg.duration_seconds ?? earlier?.duration_seconds;
+  // The first length read for a play is its own; a later different one would be the next video's.
+  const length = earlier?.duration_seconds ?? msg.duration_seconds;
   const extra = length ? { duration_seconds: length } : {};
   if (earlier && earlier.match_rule_version) return { ...earlier, ...extra, heard_seconds: heard, reached_end };
   // Not matched yet: the page's latest facts are taken, since Bilibili can redraw a title late.

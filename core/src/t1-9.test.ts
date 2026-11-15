@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { IDBFactory } from "fake-indexeddb";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closedSentence } from "./idle";
 import type { LivePage, PageFacts, PlayRow } from "./model";
 import { countClosedAtOpening, localIso, lookupFailed, mayStore, needsRule, recordClosed, rowFor, uncounted } from "./recorder";
@@ -292,6 +292,7 @@ describe("the content script (extension/src/content.ts)", () => {
     vi.stubGlobal("chrome", { runtime: { sendMessage: (m: LivePage) => (sent.push(m), Promise.resolve()), onMessage: { addListener: () => {} } } });
     vi.useFakeTimers();
     await import("../../extension/src/content");
+    vi.advanceTimersByTime(4000); // T1.9 defect fix: a page just opened is read once it has settled (SETTLE_MS)
     const video = document.querySelector("video")!;
     video.dispatchEvent(new Event("play"));
     video.dispatchEvent(new Event("ended"));
@@ -696,5 +697,312 @@ describe("whole-build red-team: a hidden tab, the erase sentence, the paused off
   it("while paused, the panel does not offer to read a video", () => {
     const side = readFileSync(join(import.meta.dirname, "../../extension/src/sidepanel.tsx"), "utf8");
     expect(side).toContain("<PanelHome playing={!!playing?.facts || !!st.recording_paused} onBilibili={onBilibili} />");
+  });
+});
+
+// ---- Defect B (2026-11-15): a change of video inside one Bilibili page --------------------------------
+// The content script runs on a stand-in page with a stand-in media element. Its messages are then fed to
+// the real recorder, so the rows are what D1 would hold with the panel closed. Titles, IDs and lengths
+// are made up (rule 8); the order of events follows what Bob's three exports show.
+
+const A = { url: "https://www.bilibili.com/video/BV1ex4y1Ex0A", title: "Juniper Varga《Glass Harbour》", length: 257 };
+const B = { url: "https://www.bilibili.com/video/BV1ex4y1Ex0B", title: "The Quiet Lanterns《Second Lamp》", length: 226 };
+
+async function stagePage(start: { url: string; title: string }, opts: { playingAtLoad?: { length: number } } = {}) {
+  vi.resetModules();
+  vi.unstubAllGlobals();
+  vi.useFakeTimers({ toFake: ["setInterval", "Date"] });
+  vi.setSystemTime(new Date(2026, 10, 15, 2, 0, 0));
+  const at = (u: string) => Object.defineProperty(window, "location", { value: new URL(u), configurable: true });
+  at(start.url);
+  document.body.innerHTML = `<h1 class="video-title">${start.title}</h1><video></video>`;
+  const video = document.querySelector("video")!;
+  let t = 0;
+  let duration = Number.NaN;
+  let paused = true;
+  Object.defineProperty(video, "paused", { get: () => paused, configurable: true });
+  Object.defineProperty(video, "currentTime", { get: () => t, set: (v: number) => (t = v), configurable: true });
+  Object.defineProperty(video, "duration", { get: () => duration, configurable: true });
+  const fire = (e: string) => video.dispatchEvent(new Event(e));
+  if (opts.playingAtLoad) {
+    // A tab Chrome restores: its player is already playing when the script starts.
+    duration = opts.playingAtLoad.length;
+    paused = false;
+  }
+  const sent: LivePage[] = [];
+  vi.stubGlobal("chrome", { runtime: { sendMessage: (m: LivePage) => (sent.push(m), Promise.resolve()), onMessage: { addListener: () => {} } } });
+  await import("../../extension/src/content");
+  const stage = {
+    sent,
+    /** The page's address and, if given, its title change (Bilibili draws the title on its own time). */
+    page: (url: string, title?: string) => {
+      at(url);
+      if (title !== undefined) document.querySelector("h1")!.textContent = title;
+    },
+    title: (title: string) => void (document.querySelector("h1")!.textContent = title),
+    /** The player loads another video: emptied, loadstart, then its length. */
+    load: (length: number) => {
+      fire("emptied");
+      fire("loadstart");
+      t = 0;
+      duration = length;
+      fire("durationchange");
+    },
+    /** The player moves to another video without reloading: its time starts again and its length changes. */
+    swap: (length: number) => {
+      t = 0;
+      duration = length;
+      fire("durationchange");
+    },
+    play: () => {
+      paused = false;
+      fire("play");
+    },
+    end: () => {
+      t = duration;
+      paused = true;
+      fire("pause");
+      fire("ended");
+    },
+    /** Seconds of time pass; while playing, the media's clock moves and its time events fire. */
+    run: (seconds: number) => {
+      for (let i = 0; i < seconds * 4; i++) {
+        vi.advanceTimersByTime(250);
+        if (!paused) {
+          t += 0.25;
+          fire("timeupdate");
+        }
+      }
+    },
+    /** The rows D1 would hold once the listener stops: the messages fed to the real recorder, in order. */
+    rows: async (settings?: Settings) => {
+      paused = true;
+      fire("pause"); // the listener stops: the last seconds are sent (a closing tab sends them the same way, on pagehide)
+      vi.useRealTimers();
+      const db = await openDb(new IDBFactory());
+      if (settings) await putSettings(db, settings);
+      for (const m of sent) await recordClosed(db, m, m.began_at ?? "2026-11-15T02:00:00");
+      return (await loadPlays(db)).map((p) => ({ title: p.page_title, video: p.video_id, heard: p.heard_seconds, length: p.duration_seconds }));
+    },
+  };
+  return stage;
+}
+
+/** No message pairs one video's page with another's length, and no token is used for two videos. */
+function noMixing(sent: LivePage[], lengths: Record<string, number>) {
+  for (const m of sent) if (m.facts && m.duration_seconds !== undefined) expect(m.duration_seconds).toBe(lengths[m.facts.video_id]);
+  const videosOf = new Map<string, Set<string>>();
+  for (const m of sent) {
+    if (!m.facts) continue;
+    if (!videosOf.has(m.play_token)) videosOf.set(m.play_token, new Set());
+    videosOf.get(m.play_token)!.add(m.facts.video_id);
+  }
+  for (const v of videosOf.values()) expect(v.size).toBe(1);
+}
+const LENGTHS = { BV1ex4y1Ex0A: A.length, BV1ex4y1Ex0B: B.length };
+
+describe("defect B: a change of video inside one page never mixes two videos' facts", () => {
+  afterEach(() => vi.useRealTimers());
+  it("(1) a list click: the earlier play keeps its own length, and no second of the next video is added to it", async () => {
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(A.length + 1); // a whole pass, as Bob's loop made
+    s.end();
+    s.play(); // the loop's next pass: a new play
+    s.run(13);
+    // The click in the list: the player loads the next video and plays it; the address follows, the title a moment later.
+    s.load(B.length);
+    s.play();
+    s.run(0.5);
+    s.page(B.url);
+    s.run(2);
+    s.title(B.title);
+    s.run(0.5);
+    // The player has the new video and the page shows its address and title: the panel hears of it at once.
+    expect(s.sent.some((m) => m.facts?.video_id === "BV1ex4y1Ex0B")).toBe(true);
+    s.run(29.5);
+    noMixing(s.sent, LENGTHS);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [A.title, 257], [B.title, 226]]);
+    expect(rows[1]!.heard).toBeGreaterThanOrEqual(12);
+    expect(rows[1]!.heard).toBeLessThanOrEqual(13); // the next video's seconds are not in it
+    expect(Math.abs(rows[2]!.heard - 32.5)).toBeLessThanOrEqual(1); // every second of the next video is its own
+  });
+  it("(1b) a list click where the address changes first and the old video plays on a moment: those seconds stay with it", async () => {
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(20);
+    s.page(B.url); // the address first
+    s.run(1); // the old video still playing
+    s.load(B.length);
+    s.play();
+    s.run(1);
+    s.title(B.title);
+    s.run(20);
+    noMixing(s.sent, LENGTHS);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [B.title, 226]]);
+    expect(Math.abs(rows[0]!.heard - 21)).toBeLessThanOrEqual(1);
+    expect(Math.abs(rows[1]!.heard - 21)).toBeLessThanOrEqual(1);
+  });
+  it("(1e) the address and title change together and the player loads the next video a second later: the old video's last second stays with it", async () => {
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(20);
+    s.page(B.url, B.title);
+    s.run(1); // the old video still playing under the new page
+    s.load(B.length);
+    s.play();
+    s.run(20);
+    noMixing(s.sent, LENGTHS);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [B.title, 226]]);
+    expect(Math.abs(rows[0]!.heard - 21)).toBeLessThanOrEqual(1);
+    expect(Math.abs(rows[1]!.heard - 20)).toBeLessThanOrEqual(1);
+  });
+  it("(1c) a player that moves to the next video without reloading (only its length changes): the earlier play keeps its own length", async () => {
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(20);
+    s.swap(B.length); // the player's source stays; its time starts again and its length changes
+    s.run(1);
+    s.page(B.url, B.title);
+    s.run(20);
+    noMixing(s.sent, LENGTHS);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [B.title, 226]]);
+    expect(rows[0]!.heard).toBeLessThanOrEqual(20);
+    expect(Math.abs(rows[1]!.heard - 21)).toBeLessThanOrEqual(1);
+  });
+  it("(1d) the next video is as long as the one before and its address comes a second after the player loads it: no second of it goes to the earlier play", async () => {
+    const C = { url: "https://www.bilibili.com/video/BV1ex4y1Ex0C", title: "Marrow & Tide《Low Bell》", length: A.length };
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(20);
+    s.load(C.length);
+    s.play();
+    s.run(1);
+    s.page(C.url);
+    s.run(1);
+    s.title(C.title);
+    s.run(20);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [C.title, 257]]);
+    expect(rows[0]!.heard).toBeLessThanOrEqual(20);
+    expect(Math.abs(rows[1]!.heard - 22)).toBeLessThanOrEqual(1);
+  });
+  it("(2) a click after the earlier video ended, or Bilibili's own autoplay: no row with the old title, 0 seconds and the next length", async () => {
+    const changeAfterEnd = async () => {
+      const s = await stagePage(A);
+      s.load(A.length);
+      s.play();
+      s.run(30);
+      s.end(); // the earlier video's clock has ended
+      const resumedAt = localIso(); // recording switched back on here (Bob's check 2)
+      s.run(2);
+      s.load(B.length); // the player plays the next video while the page still shows the old one
+      s.play();
+      s.run(1);
+      s.page(B.url);
+      s.run(5); // the title is drawn late
+      s.title(B.title);
+      s.run(15);
+      return { s, resumedAt };
+    };
+    const { s } = await changeAfterEnd();
+    noMixing(s.sent, LENGTHS);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[A.title, 257], [B.title, 226]]);
+    expect(rows.every((r) => r.heard >= 1)).toBe(true);
+    // After recording is switched back on, the earlier play (begun while paused) stays out and the next is kept alone.
+    const again = await changeAfterEnd();
+    noMixing(again.s.sent, LENGTHS);
+    const resumed = await again.s.rows({ settings_id: 1, recording_resumed_at: again.resumedAt });
+    expect(resumed.map((r) => [r.title, r.length])).toEqual([[B.title, 226]]);
+    expect(Math.abs(resumed[0]!.heard - 21)).toBeLessThanOrEqual(1);
+  });
+  it("(3) a tab Chrome restored: its page shows one video while its player plays another; only the played video gets a row", async () => {
+    const s = await stagePage(A, { playingAtLoad: { length: B.length } });
+    s.run(1);
+    s.page(B.url, B.title); // a second later the page catches up with its player
+    s.run(40);
+    noMixing(s.sent, LENGTHS);
+    const rows = await s.rows();
+    expect(rows.map((r) => [r.title, r.length])).toEqual([[B.title, 226]]);
+    expect(Math.abs(rows[0]!.heard - 41)).toBeLessThanOrEqual(1);
+  });
+  it("the same video reloaded by its player (a change of quality) stays one play, and a page opened but never played leaves no row", async () => {
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(20);
+    s.load(A.length); // the player reloads the same video
+    s.play();
+    s.run(20);
+    const rows = await s.rows();
+    expect(rows.map((r) => r.title)).toEqual([A.title]);
+    expect(Math.abs(rows[0]!.heard - 40)).toBeLessThanOrEqual(1);
+    const idle = await stagePage(A);
+    idle.load(A.length);
+    idle.run(30); // opened, never played
+    expect(await idle.rows()).toEqual([]);
+  });
+  it("(2), with the panel open (as in Bob's check 2): the panel's card, fed the same messages, keeps only the played video, with its own length", async () => {
+    const s = await stagePage(A);
+    s.load(A.length);
+    s.play();
+    s.run(30);
+    s.end();
+    s.run(2);
+    s.load(B.length);
+    s.play();
+    s.run(1);
+    s.page(B.url);
+    s.run(5);
+    s.title(B.title);
+    s.run(15);
+    await s.rows(); // the listener stops; real timers from here
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    const factory = new IDBFactory();
+    vi.stubGlobal("indexedDB", factory);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ count: 0, recordings: [] }), { status: 200, headers: { "content-type": "application/json" } })));
+    const { hydrate } = await import("../ui/store");
+    const { NowPlaying } = await import("../ui/NowPlaying");
+    await hydrate();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    for (const m of s.sent) if (m.facts) await act(async () => root.render(createElement(NowPlaying, { live: { ...m, facts: m.facts! } })));
+    await act(async () => new Promise((r) => setTimeout(r, 300)));
+    act(() => root.unmount());
+    host.remove();
+    const rows = (await loadPlays(await openDb(factory))).map((p) => [p.page_title, p.duration_seconds, p.heard_seconds >= 1, p.recorded_with]);
+    expect(rows).toEqual([[A.title, 257, true, "panel open"], [B.title, 226, true, "panel open"]]);
+  });
+  it("the open panel keeps no row for a video not yet heard for a second, then keeps it at its first second", async () => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    vi.stubGlobal("indexedDB", new IDBFactory());
+    const { actions, getState, hydrate } = await import("../ui/store");
+    await hydrate();
+    const row = { ...rowFor(msg({ play_token: "panel", heard_seconds: 1 }), null, "2026-11-15T02:00:00")!, recorded_with: "panel open" as const };
+    await actions.savePlay({ ...row, heard_seconds: 0 });
+    expect(getState().plays).toEqual([]);
+    await actions.savePlay(row);
+    expect(getState().plays.map((p) => p.play_id)).toEqual(["play-panel"]);
+    const src = readFileSync(join(import.meta.dirname, "../ui/NowPlaying.tsx"), "utf8");
+    expect(src).toContain("const first = savedHeard.current < 1 && live.heard_seconds >= 1;");
+  });
+  it("the recorder keeps a play's first length and never lets a row take another video's page", () => {
+    const first = rowFor(msg({ duration_seconds: 257 }), null, "2026-11-15T02:00:00")!;
+    expect(rowFor(msg({ duration_seconds: 226, heard_seconds: 9 }), first, "2026-11-15T02:00:09")).toMatchObject({ duration_seconds: 257, heard_seconds: 9 });
+    expect(rowFor(msg({ facts: { ...FACTS, video_id: "BV1ex4y1Ex0B" }, heard_seconds: 9 }), first, "2026-11-15T02:00:09")).toBeNull();
+    expect(rowFor(msg({ heard_seconds: 0, playing: true }), null, "2026-11-15T02:00:00")).toBeNull();
   });
 });

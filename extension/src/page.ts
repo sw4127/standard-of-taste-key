@@ -74,6 +74,13 @@ export function titleStillOld(prev: PageFacts | null, next: PageFacts, waitedMs:
   return newVideo && next.page_title === prev!.page_title && waitedMs < TITLE_WAIT_MS;
 }
 
+/**
+ * T1.9 defect fix (2026-11-15): a page changing video has settled once what it shows (address, part and
+ * title) has stayed the same this long. A tab Chrome restored showed one video's page for a second while
+ * its player had already loaded the next (Bob's check 3).
+ */
+export const SETTLE_MS = 3000;
+
 /** The page's media element: a plain <video>, or Bilibili's own player element where it uses one. */
 export function mediaOf(doc: Document): HTMLMediaElement | null {
   return doc.querySelector<HTMLMediaElement>("video") ?? doc.querySelector<HTMLMediaElement>("bwp-video");
@@ -105,5 +112,11 @@ export class HeardClock {
   end() {
     this.ended = true;
     this.last = null;
+  }
+  /** T1.9 defect fix: seconds counted apart while the page was changing video turn out to be this play's own. */
+  absorb(other: HeardClock) {
+    this.heard += other.heard;
+    this.ended ||= other.ended;
+    this.last = other.last;
   }
 }

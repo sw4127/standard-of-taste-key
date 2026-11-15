@@ -308,6 +308,8 @@ export const actions = {
       if (!kept) unstored.add(row.play_id);
       return;
     }
+    // T1.9 defect fix: a play is first kept once a second of it has been heard; a video that never plays leaves no row.
+    if (!kept && row.heard_seconds < 1) return;
     const i = state.plays.findIndex((p) => p.play_id === row.play_id);
     const plays = i < 0 ? [...state.plays, row] : state.plays.map((p, j) => (j === i ? row : p));
     state = { ...state, plays };

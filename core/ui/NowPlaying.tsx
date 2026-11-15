@@ -171,12 +171,14 @@ export function NowPlaying({ live }: { live: LivePage & { facts: PageFacts } }) 
     setStatus({ kind: "match", result: checked });
   }, [live.duration_seconds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Seconds heard: kept with the play every 5 seconds, and at a pause or the end.
+  // Seconds heard: kept with the play at its first second (T1.9 defect fix: the store keeps no row before
+  // then), every 5 seconds, and at a pause or the end.
   useEffect(() => {
     const row = play.current;
     if (!row) return;
     const ended = live.ended ? "yes" : row.reached_end;
-    if (live.heard_seconds - savedHeard.current >= 5 || !live.playing || ended !== row.reached_end) {
+    const first = savedHeard.current < 1 && live.heard_seconds >= 1;
+    if (first || live.heard_seconds - savedHeard.current >= 5 || !live.playing || ended !== row.reached_end) {
       savedHeard.current = live.heard_seconds;
       play.current = { ...row, heard_seconds: Math.max(row.heard_seconds, live.heard_seconds), reached_end: ended };
       void actions.savePlay(play.current);
